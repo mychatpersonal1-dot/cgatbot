@@ -229,18 +229,45 @@
 
         // --- CALL ---
         window.startCall = () => {
-            if (typeof ZegoUIKitPrebuilt === 'undefined') return alert("Zego Loading...");
-            const roomID = (me.email < peer.email ? me.email + peer.email : peer.email + me.email).replace(/[^a-zA-Z0-9]/g, "");
-            const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(1196176620, "a5137871a508226e73c23d027ab37107", roomID, me.email, me.email);
-            const zp = ZegoUIKitPrebuilt.create(kitToken);
-            document.getElementById('call-root').classList.remove('hidden');
-            zp.joinRoom({
-                container: document.querySelector("#call-root"),
-                scenario: { mode: ZegoUIKitPrebuilt.OneONoneCall },
-                onLeaveRoom: () => document.getElementById('call-root').classList.add('hidden')
-            });
-        };
+    // Check if SDK is loaded
+    const ZegoSDK = window.ZegoUIKitPrebuilt;
+    
+    if (!ZegoSDK) {
+        alert("Zego SDK abhi load ho raha hai, 2 second baad dobara click karein.");
+        console.error("Zego SDK not found on window object");
+        return;
+    }
+
+    // 1. Pehle div ko show karo (Zego ko container chahiye hota hai)
+    const container = document.getElementById('call-root');
+    container.classList.remove('hidden');
+
+    const appID = 1196176620;
+    const serverSecret = "a5137871a508226e73c23d027ab37107";
+    
+    // Room ID unique honi chahiye aur special characters nahi hone chahiye
+    const roomID = (me.email < peer.email ? me.email + peer.email : peer.email + me.email).replace(/[^a-zA-Z0-9]/g, "");
+
+    try {
+        const kitToken = ZegoSDK.generateKitTokenForTest(appID, serverSecret, roomID, me.email, me.email);
+        const zp = ZegoSDK.create(kitToken);
+
+        zp.joinRoom({
+            container: container,
+            scenario: { mode: ZegoSDK.OneONoneCall },
+            onLeaveRoom: () => {
+                container.classList.add('hidden');
+                // Room chhodne ke baad UI clean karne ke liye reload zaroori hai
+                window.location.reload(); 
+            }
+        });
+    } catch (err) {
+        alert("Call start nahi ho saki: " + err.message);
+        container.classList.add('hidden');
+    }
+};
     </script>
 </body>
 </html>
+
 
