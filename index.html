@@ -3,90 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WhatsApp Pro - Ultra</title>
+    <title>WhatsApp Pro - Fixed</title>
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://resource.zegocloud.com/prebuilt/zego-uikit-prebuilt.js"></script>
     <style>
         :root { --wa-teal: #128C7E; --wa-green: #25D366; --wa-bg: #efe7de; }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
-        body { background: #dadbd3; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        body { background: #dadbd3; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         .hidden { display: none !important; }
-        
         header { background: var(--wa-teal); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
         .tab-bar { display: flex; background: var(--wa-teal); color: #b3d4d0; }
         .tab { flex: 1; text-align: center; padding: 12px; cursor: pointer; }
         .active { color: white; border-bottom: 3px solid white; }
-
         .list { flex: 1; overflow-y: auto; background: white; }
-        .item { display: flex; align-items: center; padding: 12px 15px; border-bottom: 1px solid #eee; cursor: pointer; }
-        .item img { width: 50px; height: 50px; border-radius: 50%; margin-right: 15px; }
-
-        /* Chat UI */
+        .item { display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #eee; cursor: pointer; }
+        .item img { width: 45px; height: 45px; border-radius: 50%; margin-right: 15px; }
         #chat-window { position: fixed; inset: 0; background: var(--wa-bg); z-index: 2000; display: flex; flex-direction: column; transform: translateX(100%); transition: 0.3s; }
         #chat-window.open { transform: translateX(0); }
         .msg-area { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
-        
-        .msg { padding: 8px; border-radius: 8px; margin-bottom: 8px; max-width: 75%; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
+        .msg { padding: 8px 12px; border-radius: 8px; margin-bottom: 5px; max-width: 75%; font-size: 15px; position: relative; }
         .sent { align-self: flex-end; background: #dcf8c6; }
         .received { align-self: flex-start; background: white; }
-        .msg-img { width: 100%; border-radius: 5px; margin-top: 5px; cursor: zoom-in; }
-        .del-msg { font-size: 10px; color: #cc0000; cursor: pointer; display: block; text-align: right; margin-top: 4px; }
-        
+        .del-btn { font-size: 10px; color: red; cursor: pointer; display: block; margin-top: 5px; text-align: right; }
         .footer { padding: 10px; background: #f0f0f0; display: flex; align-items: center; }
-        .footer input { flex: 1; padding: 10px 15px; border-radius: 25px; border: none; margin: 0 10px; outline: none; }
-
-        #image-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 4000; display: flex; align-items: center; justify-content: center; }
+        .footer input { flex: 1; padding: 10px; border-radius: 20px; border: none; outline: none; margin: 0 10px; }
     </style>
 </head>
 <body>
 
     <div id="login-screen" style="position:fixed; inset:0; background:#075E54; display:flex; align-items:center; justify-content:center; z-index:5000;">
         <div style="background:white; padding:30px; border-radius:10px; width:90%; max-width:350px;">
-            <h2 style="text-align:center; color:var(--wa-teal); margin-bottom:15px;">WhatsApp Pro Login</h2>
-            <input type="email" id="l-email" placeholder="Email ID" style="width:100%; padding:12px; margin:8px 0; border:1px solid #ddd; border-radius:5px;">
-            <input type="password" id="l-pass" placeholder="Password" style="width:100%; padding:12px; margin:8px 0; border:1px solid #ddd; border-radius:5px;">
-            <button onclick="window.doLogin()" style="width:100%; background:var(--wa-green); color:white; padding:12px; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">LOGIN</button>
+            <h2 style="text-align:center; color:var(--wa-teal)">WhatsApp Pro</h2>
+            <input type="email" id="l-email" placeholder="Email" style="width:100%; padding:10px; margin:10px 0; border:1px solid #ddd;">
+            <input type="password" id="l-pass" placeholder="Password" style="width:100%; padding:10px; margin:10px 0; border:1px solid #ddd;">
+            <button onclick="window.doLogin()" style="width:100%; background:var(--wa-green); color:white; padding:12px; border:none; border-radius:5px; font-weight:bold;">LOGIN</button>
         </div>
     </div>
 
     <div id="main-app" class="hidden">
-        <header><b id="me-label">WhatsApp Pro</b><i class="fas fa-sign-out-alt" onclick="window.logout()" style="cursor:pointer;"></i></header>
+        <header><b id="me-label">User</b><i class="fas fa-sign-out-alt" onclick="window.logout()"></i></header>
         <div class="tab-bar">
             <div id="t-chats" class="tab active" onclick="switchTab('chats')">CHATS</div>
             <div id="t-admin" class="tab hidden" onclick="switchTab('admin')">ADMIN</div>
         </div>
         <div id="view-chats" class="list"></div>
         <div id="view-admin" class="list hidden">
-            <div style="padding:15px; background:#f9f9f9; border-bottom:1px solid #ddd;">
-                <h4>Add New User</h4>
-                <input type="email" id="n-email" placeholder="Email" style="width:100%; padding:8px; margin:5px 0;">
-                <input type="text" id="n-pass" placeholder="Password" style="width:100%; padding:8px; margin:5px 0;">
-                <button onclick="window.addUser()" style="width:100%; padding:10px; background:var(--wa-teal); color:white; border:none; border-radius:5px;">CREATE ACCOUNT</button>
+            <div style="padding:15px;">
+                <input type="email" id="n-email" placeholder="New User Email" style="width:100%; padding:8px; margin-bottom:5px;">
+                <input type="text" id="n-pass" placeholder="Password" style="width:100%; padding:8px; margin-bottom:5px;">
+                <button onclick="window.addUser()" style="width:100%; padding:10px; background:var(--wa-teal); color:white; border:none;">ADD USER</button>
             </div>
         </div>
     </div>
 
     <div id="chat-window">
         <div style="background:var(--wa-teal); color:white; padding:10px; display:flex; align-items:center;">
-            <i class="fas fa-arrow-left" onclick="window.closeChat()" style="padding:10px; cursor:pointer;"></i>
+            <i class="fas fa-arrow-left" onclick="window.closeChat()"></i>
             <img id="chat-pfp" src="" style="width:35px; height:35px; border-radius:50%; margin:0 10px;">
             <b id="chat-name" style="flex:1;">User</b>
-            <i class="fas fa-phone" onclick="window.startCall('audio')" style="padding:10px; cursor:pointer; margin-right:10px;"></i>
-            <i class="fas fa-video" onclick="window.startCall('video')" style="padding:10px; cursor:pointer;"></i>
+            <i class="fas fa-phone" onclick="window.startCall('audio')" style="margin-right:15px; cursor:pointer;"></i>
+            <i class="fas fa-video" onclick="window.startCall('video')" style="cursor:pointer;"></i>
         </div>
         <div id="msg-area" class="msg-area"></div>
         <div class="footer">
-            <label for="img-send"><i class="fas fa-camera" style="color:#666; font-size:20px; cursor:pointer;"></i></label>
-            <input type="file" id="img-send" class="hidden" accept="image/*" onchange="window.sendImage(this)">
-            <input type="text" id="m-input" placeholder="Type a message...">
-            <i class="fas fa-paper-plane" onclick="window.sendMsg()" style="color:var(--wa-teal); font-size:22px; cursor:pointer;"></i>
+            <label for="img-in"><i class="fas fa-camera" style="cursor:pointer;"></i></label>
+            <input type="file" id="img-in" class="hidden" accept="image/*" onchange="window.sendImage(this)">
+            <input type="text" id="m-input" placeholder="Message...">
+            <i class="fas fa-paper-plane" onclick="window.sendMsg()" style="color:var(--wa-teal); font-size:20px;"></i>
         </div>
     </div>
 
-    <div id="image-overlay" class="hidden" onclick="this.classList.add('hidden')">
-        <img id="full-img" src="" style="max-width:95%; max-height:90%; border-radius:5px;">
-    </div>
-    
     <div id="call-root" class="hidden" style="position:fixed; inset:0; z-index:3000; background:black;"></div>
 
     <script type="module">
@@ -113,12 +100,12 @@
         window.doLogin = async () => {
             const e = document.getElementById('l-email').value;
             const p = document.getElementById('l-pass').value;
-            try { await signInWithEmailAndPassword(auth, e, p); } 
+            try { await signInWithEmailAndPassword(auth, e, p); }
             catch {
                 const q = query(collection(db, "users"), where("email", "==", e), where("password", "==", p));
                 const snap = await getDocs(q);
                 if(!snap.empty) { await createUserWithEmailAndPassword(auth, e, p); window.location.reload(); }
-                else alert("Invalid Credentials!");
+                else alert("Invalid Login");
             }
         };
 
@@ -139,8 +126,7 @@
             const email = document.getElementById('n-email').value;
             const pass = document.getElementById('n-pass').value;
             await addDoc(collection(db, "users"), { email, password: pass });
-            alert("User Added!");
-            document.getElementById('n-email').value = ""; document.getElementById('n-pass').value = "";
+            alert("Done!");
         };
 
         window.switchTab = (t) => {
@@ -191,9 +177,7 @@
             reader.readAsDataURL(file);
         };
 
-        window.deleteMsg = async (id) => { if(confirm("Delete message?")) await deleteDoc(doc(db, "messages", id)); };
-
-        window.viewImg = (src) => { document.getElementById('full-img').src = src; document.getElementById('image-overlay').classList.remove('hidden'); };
+        window.delMsg = async (id) => { if(confirm("Delete?")) await deleteDoc(doc(db, "messages", id)); };
 
         function listen() {
             const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
@@ -202,12 +186,10 @@
                 const area = document.getElementById('msg-area'); area.innerHTML = "";
                 snap.forEach(d => {
                     const m = d.data();
-                    const div = document.createElement('div');
-                    div.className = `msg ${m.sender === me.email ? 'sent' : 'received'}`;
+                    const div = document.createElement('div'); div.className = `msg ${m.sender === me.email ? 'sent' : 'received'}`;
                     if(m.type === "text") div.innerText = m.text;
-                    else div.innerHTML = `<img src="${m.img}" class="msg-img" onclick="window.viewImg('${m.img}')">`;
-                    
-                    if(m.sender === me.email) div.innerHTML += `<span class="del-msg" onclick="window.deleteMsg('${d.id}')">Delete</span>`;
+                    else div.innerHTML = `<img src="${m.img}" style="width:100%; border-radius:5px;">`;
+                    if(m.sender === me.email) div.innerHTML += `<span class="del-btn" onclick="window.delMsg('${d.id}')">Delete</span>`;
                     area.appendChild(div);
                 });
                 area.scrollTop = area.scrollHeight;
@@ -215,15 +197,15 @@
         }
 
         window.startCall = (mode) => {
-            if(!window.ZegoUIKitPrebuilt) return alert("SDK Loading...");
-            const roomID = btoa(me.email < peer.email ? me.email + peer.email : peer.email + me.email).substring(0,10);
+            const container = document.getElementById('call-root');
+            container.classList.remove('hidden');
+            const roomID = btoa(me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email).substring(0,10);
             const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(1196176620, "a5137871a508226e73c23d027ab37107", roomID, me.email, me.email);
             const zp = ZegoUIKitPrebuilt.create(kitToken);
-            document.getElementById('call-root').classList.remove('hidden');
             zp.joinRoom({
-                container: document.getElementById('call-root'),
+                container: container,
                 scenario: { mode: mode === 'video' ? ZegoUIKitPrebuilt.OneONoneCall : ZegoUIKitPrebuilt.GroupCall },
-                onLeaveRoom: () => { document.getElementById('call-root').classList.add('hidden'); window.location.reload(); }
+                onLeaveRoom: () => { container.classList.add('hidden'); window.location.reload(); }
             });
         };
     </script>
