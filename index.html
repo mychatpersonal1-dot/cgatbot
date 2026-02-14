@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WhatsApp StudyBook Pro</title>
+    <title>WhatsApp Pro - Fixed</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
     <style>
@@ -11,28 +11,19 @@
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background: #dadbd3; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         .hidden { display: none !important; }
-
-        /* Main UI */
-        header { background: var(--wa-teal); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        header { background: var(--wa-teal); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
         #login-screen { height: 100vh; background: #075E54; display: flex; align-items: center; justify-content: center; position: fixed; width: 100%; z-index: 3000; }
         .login-card { background: white; padding: 30px; border-radius: 10px; width: 90%; max-width: 350px; text-align: center; }
-        
         .user-item { display: flex; align-items: center; padding: 15px; background: white; border-bottom: 1px solid #eee; cursor: pointer; }
         .user-item img { width: 45px; height: 45px; border-radius: 50%; margin-right: 15px; }
-
-        /* Chat Window */
         #chat-window { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--wa-bg); z-index: 1000; display: flex; flex-direction: column; transform: translateX(100%); transition: 0.3s ease; }
         #chat-window.open { transform: translateX(0); }
         .msg-container { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
-        
-        .msg { max-width: 75%; padding: 8px 12px; border-radius: 8px; margin-bottom: 5px; position: relative; font-size: 15px; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
+        .msg { max-width: 75%; padding: 8px 12px; border-radius: 8px; margin-bottom: 5px; font-size: 15px; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
         .sent { align-self: flex-end; background: var(--bubble-sent); border-top-right-radius: 0; }
         .received { align-self: flex-start; background: var(--bubble-rcv); border-top-left-radius: 0; }
-        
         .chat-footer { background: #f0f0f0; padding: 10px; display: flex; align-items: center; }
         .chat-footer input { flex: 1; border: none; padding: 10px 15px; border-radius: 20px; outline: none; margin: 0 10px; }
-        
-        /* Zego Container */
         #call-root { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000; background: black; }
     </style>
 </head>
@@ -48,10 +39,7 @@
     </div>
 
     <div id="main-app" class="hidden">
-        <header>
-            <b>WhatsApp Pro</b>
-            <i class="fas fa-sign-out-alt" onclick="window.logout()"></i>
-        </header>
+        <header><b>WhatsApp Pro</b><i class="fas fa-sign-out-alt" onclick="window.logout()"></i></header>
         <div id="user-list-container"></div>
     </div>
 
@@ -60,8 +48,7 @@
             <i class="fas fa-arrow-left" onclick="window.closeChat()" style="padding:10px;"></i>
             <img id="chat-avatar" src="" style="width:35px; height:35px; border-radius:50%; margin:0 10px;">
             <div style="flex:1;"><b id="chat-name">User</b></div>
-            <i class="fas fa-video" onclick="window.startCall()" style="margin-right:20px; font-size:20px;"></i>
-            <i class="fas fa-phone" onclick="window.startCall()" style="font-size:18px;"></i>
+            <i class="fas fa-video" onclick="window.startCall()" style="margin-right:20px; cursor:pointer;"></i>
         </div>
         <div class="msg-container" id="msg-container"></div>
         <div class="chat-footer">
@@ -93,7 +80,9 @@
         let me = null, peer = null, unsub = null;
 
         window.doLogin = () => {
-            signInWithEmailAndPassword(auth, document.getElementById('l-email').value, document.getElementById('l-pass').value).catch(e => alert(e.message));
+            const e = document.getElementById('l-email').value;
+            const p = document.getElementById('l-pass').value;
+            signInWithEmailAndPassword(auth, e, p).catch(err => alert(err.message));
         };
 
         window.logout = () => signOut(auth);
@@ -161,11 +150,17 @@
                     cont.appendChild(div);
                 });
                 cont.scrollTop = cont.scrollHeight;
+            }, (error) => {
+                console.error("Firestore Error: ", error);
+                if(error.code === 'failed-precondition') alert("Index error! Click the link in console to fix.");
             });
         }
 
-        // --- ZEGO CALL LOGIC ---
         window.startCall = () => {
+            if (typeof ZegoUIKitPrebuilt === 'undefined') {
+                alert("Zego Library is loading... please wait 5 seconds.");
+                return;
+            }
             const appID = 1196176620;
             const serverSecret = "a5137871a508226e73c23d027ab37107";
             const roomID = me.uid < peer.id ? me.uid + peer.id : peer.id + me.uid;
@@ -177,7 +172,6 @@
             zp.joinRoom({
                 container: document.querySelector("#call-root"),
                 scenario: { mode: ZegoUIKitPrebuilt.OneONoneCall },
-                showScreenSharingButton: true,
                 onLeaveRoom: () => {
                     document.getElementById('call-root').classList.add('hidden');
                 }
