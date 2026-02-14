@@ -16,24 +16,38 @@
         #chat-window { position: fixed; inset: 0; background: var(--wa-bg); z-index: 2000; display: flex; flex-direction: column; transform: translateX(100%); transition: 0.3s; }
         #chat-window.open { transform: translateX(0); }
         .msg-area { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
-        
-        /* Message styling with Delete effect */
         .msg { padding: 6px 10px; border-radius: 8px; margin-bottom: 4px; max-width: 85%; font-size: 14.5px; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.1); cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
         .msg:active { opacity: 0.7; background: #e2e2e2; }
         .sent { align-self: flex-end; background: #dcf8c6; }
         .received { align-self: flex-start; background: white; }
-        
         .msg-meta { display: flex; align-items: center; justify-content: flex-end; font-size: 10px; color: #777; margin-top: 2px; }
         .blue-tick { color: var(--wa-blue); }
         .user-item { display: flex; align-items: center; padding: 12px; background: white; border-bottom: 1px solid #eee; cursor: pointer; }
         .user-item img { width: 45px; height: 45px; border-radius: 50%; margin-right: 12px; }
         #preview-box { position: fixed; inset: 0; background: black; z-index: 9000; display: none; align-items: center; justify-content: center; }
+        
+        /* ADMIN PANEL STYLES */
+        #admin-panel { position: fixed; inset: 0; background: white; z-index: 5000; display: flex; flex-direction: column; }
+        .admin-list-item { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .btn-danger { color: #e74c3c; padding: 10px; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div id="preview-box" onclick="this.style.display='none'"><img id="full-img" style="max-width:100%; max-height:100%;"></div>
     <div id="call-root" class="hidden" style="position:fixed; inset:0; z-index:5000;"></div>
+
+    <div id="admin-panel" class="hidden">
+        <header>
+            <i class="fas fa-arrow-left" onclick="document.getElementById('admin-panel').classList.add('hidden')"></i>
+            <b>Admin Control</b>
+            <span></span>
+        </header>
+        <div id="admin-user-content" style="flex:1; overflow-y:auto; padding: 10px;">
+            <h3 style="padding:10px; color:var(--wa-teal);">All Users</h3>
+            <div id="admin-user-list"></div>
+        </div>
+    </div>
 
     <div id="login-screen" style="position:fixed; inset:0; background:var(--wa-teal); z-index:10000; display:flex; align-items:center; justify-content:center;">
         <div style="background:white; padding:30px; border-radius:10px; width:90%; max-width:350px;">
@@ -45,7 +59,13 @@
     </div>
 
     <div id="main-app" class="hidden">
-        <header><b>WhatsApp</b> <i class="fas fa-sign-out-alt" onclick="window.logout()"></i></header>
+        <header>
+            <b>WhatsApp</b> 
+            <div>
+                <i class="fas fa-user-shield hidden" id="admin-icon" style="margin-right:20px; cursor:pointer;" onclick="window.showAdmin()"></i>
+                <i class="fas fa-sign-out-alt" onclick="window.logout()"></i>
+            </div>
+        </header>
         <div id="user-list"></div>
     </div>
 
@@ -71,7 +91,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, setDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, setDoc, deleteDoc, serverTimestamp, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = { 
             apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
@@ -84,6 +104,9 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
         let me = null, peer = null;
+
+        // --- ADMIN CONFIG ---
+        const ADMIN_EMAIL = "admin@gmail.com";
 
         const updateStatus = async (st) => {
             if (me) {
@@ -109,11 +132,63 @@
                 me = u;
                 document.getElementById('login-screen').classList.add('hidden');
                 document.getElementById('main-app').classList.remove('hidden');
+                
+                // Show Admin Icon if it's Admin
+                if(me.email === ADMIN_EMAIL) {
+                    document.getElementById('admin-icon').classList.remove('hidden');
+                    setupNotifications();
+                }
+
                 updateStatus("online");
                 loadList();
                 checkSDK();
             }
         });
+
+        // --- NOTIFICATION SYSTEM ---
+        function setupNotifications() {
+            if (Notification.permission !== "granted") Notification.requestPermission();
+            
+            // Listen for any new unread message in the whole system
+            const q = query(collection(db, "messages"), where("read", "==", false));
+            onSnapshot(q, snap => {
+                snap.docChanges().forEach(change => {
+                    if (change.type === "added") {
+                        const m = change.doc.data();
+                        if(m.sender !== me.email) {
+                            new Notification("New Message", { body: `${m.sender}: ${m.text || 'Sent an image'}` });
+                            new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3').play().catch(()=>{});
+                        }
+                    }
+                });
+            });
+        }
+
+        // --- ADMIN PANEL FUNCTIONS ---
+        window.showAdmin = async () => {
+            document.getElementById('admin-panel').classList.remove('hidden');
+            const snap = await getDocs(collection(db, "users"));
+            const list = document.getElementById('admin-user-list');
+            list.innerHTML = "";
+            snap.forEach(d => {
+                const u = d.data();
+                const div = document.createElement('div');
+                div.className = "admin-list-item";
+                div.innerHTML = `
+                    <div><b>${u.email}</b></div>
+                    <i class="fas fa-trash-alt btn-danger" onclick="window.adminDeleteUser('${d.id}', '${u.email}')"></i>
+                `;
+                list.appendChild(div);
+            });
+        };
+
+        window.adminDeleteUser = async (docId, email) => {
+            if(confirm(`User ${email} ko hamesha ke liye delete karein?`)) {
+                await deleteDoc(doc(db, "users", docId));
+                alert("User deleted!");
+                window.showAdmin(); // Refresh list
+            }
+        };
 
         function checkSDK() {
             const timer = setInterval(() => {
@@ -179,7 +254,6 @@
                     const div = document.createElement('div');
                     div.className = `msg ${m.sender === me.email ? 'sent' : 'received'}`;
                     
-                    // --- DELETE LOGIC (Long Press) ---
                     let pressTimer;
                     const startPress = () => {
                         pressTimer = setTimeout(async () => {
