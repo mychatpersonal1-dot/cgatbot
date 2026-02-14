@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WhatsApp Pro - Realtime</title>
+    <title>WhatsApp StudyBook Pro</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
     <style>
@@ -12,80 +12,70 @@
         body { background: #dadbd3; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         .hidden { display: none !important; }
 
-        /* Login */
-        #login-screen { height: 100vh; background: #075E54; display: flex; align-items: center; justify-content: center; z-index: 2000; position: fixed; width: 100%; }
-        .login-card { background: white; padding: 30px; border-radius: 10px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; outline: none; }
-        
         /* Main UI */
-        header { background: var(--wa-teal); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
-        .user-list-item { display: flex; align-items: center; padding: 15px; background: white; border-bottom: 1px solid #eee; cursor: pointer; transition: 0.2s; }
-        .user-list-item:active { background: #f0f0f0; }
-        .user-list-item img { width: 50px; height: 50px; border-radius: 50%; margin-right: 15px; }
+        header { background: var(--wa-teal); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        #login-screen { height: 100vh; background: #075E54; display: flex; align-items: center; justify-content: center; position: fixed; width: 100%; z-index: 3000; }
+        .login-card { background: white; padding: 30px; border-radius: 10px; width: 90%; max-width: 350px; text-align: center; }
+        
+        .user-item { display: flex; align-items: center; padding: 15px; background: white; border-bottom: 1px solid #eee; cursor: pointer; }
+        .user-item img { width: 45px; height: 45px; border-radius: 50%; margin-right: 15px; }
 
         /* Chat Window */
-        #chat-window { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--wa-bg); z-index: 1500; display: flex; flex-direction: column; transform: translateX(100%); transition: 0.3s ease; }
+        #chat-window { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--wa-bg); z-index: 1000; display: flex; flex-direction: column; transform: translateX(100%); transition: 0.3s ease; }
         #chat-window.open { transform: translateX(0); }
-        
-        .chat-header { background: var(--wa-teal); color: white; padding: 10px; display: flex; align-items: center; }
         .msg-container { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
         
-        /* Message Bubbles */
-        .msg { max-width: 75%; padding: 8px 12px; border-radius: 8px; margin-bottom: 5px; position: relative; font-size: 15px; box-shadow: 0 1px 1px rgba(0,0,0,0.1); word-wrap: break-word; }
+        .msg { max-width: 75%; padding: 8px 12px; border-radius: 8px; margin-bottom: 5px; position: relative; font-size: 15px; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
         .sent { align-self: flex-end; background: var(--bubble-sent); border-top-right-radius: 0; }
         .received { align-self: flex-start; background: var(--bubble-rcv); border-top-left-radius: 0; }
-        .msg-time { font-size: 10px; color: #888; text-align: right; margin-top: 4px; display: block; }
-        .msg-delete { position: absolute; top: -5px; right: -5px; background: rgba(255,0,0,0.7); color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: none; align-items: center; justify-content: center; cursor: pointer; }
-        .msg:hover .msg-delete { display: flex; }
-
-        .chat-footer { background: #f0f0f0; padding: 10px; display: flex; align-items: center; }
-        .chat-footer input { flex: 1; border: none; padding: 10px 15px; border-radius: 20px; margin: 0 10px; }
         
-        #zego-container { position: fixed; top: 0; width: 100%; height: 100%; z-index: 2500; background: black; }
+        .chat-footer { background: #f0f0f0; padding: 10px; display: flex; align-items: center; }
+        .chat-footer input { flex: 1; border: none; padding: 10px 15px; border-radius: 20px; outline: none; margin: 0 10px; }
+        
+        /* Zego Container */
+        #call-root { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000; background: black; }
     </style>
 </head>
 <body>
 
     <div id="login-screen">
         <div class="login-card">
-            <h2 style="color: #075E54; margin-bottom: 20px;">WhatsApp Login</h2>
-            <input type="email" id="l-email" placeholder="Email">
-            <input type="password" id="l-pass" placeholder="Password">
-            <button onclick="window.doLogin()" style="width: 100%; background: var(--wa-green); color: white; border: none; padding: 12px; border-radius: 5px; font-weight: bold; cursor: pointer;">LOGIN</button>
+            <h2 style="color: #075E54; margin-bottom: 15px;">WhatsApp Login</h2>
+            <input type="email" id="l-email" placeholder="Email" style="width:100%; padding:10px; margin:5px 0;">
+            <input type="password" id="l-pass" placeholder="Password" style="width:100%; padding:10px; margin:5px 0;">
+            <button onclick="window.doLogin()" style="width:100%; background:var(--wa-green); color:white; border:none; padding:12px; margin-top:10px; border-radius:5px; font-weight:bold;">LOGIN</button>
         </div>
     </div>
 
-    <div id="main-screen" class="hidden">
+    <div id="main-app" class="hidden">
         <header>
             <b>WhatsApp Pro</b>
             <i class="fas fa-sign-out-alt" onclick="window.logout()"></i>
         </header>
-        <div id="contact-list"></div>
+        <div id="user-list-container"></div>
     </div>
 
     <div id="chat-window">
-        <div class="chat-header">
-            <i class="fas fa-arrow-left" onclick="window.closeChat()" style="padding: 10px;"></i>
-            <img id="chat-avatar" src="" style="width: 40px; height: 40px; border-radius: 50%; margin: 0 10px;">
-            <div style="flex: 1;"><b id="chat-name">User</b></div>
-            <i class="fas fa-video" onclick="window.call('video')" style="margin-right: 20px;"></i>
-            <i class="fas fa-phone" onclick="window.call('audio')"></i>
+        <div style="background:var(--wa-teal); color:white; padding:10px; display:flex; align-items:center;">
+            <i class="fas fa-arrow-left" onclick="window.closeChat()" style="padding:10px;"></i>
+            <img id="chat-avatar" src="" style="width:35px; height:35px; border-radius:50%; margin:0 10px;">
+            <div style="flex:1;"><b id="chat-name">User</b></div>
+            <i class="fas fa-video" onclick="window.startCall()" style="margin-right:20px; font-size:20px;"></i>
+            <i class="fas fa-phone" onclick="window.startCall()" style="font-size:18px;"></i>
         </div>
         <div class="msg-container" id="msg-container"></div>
         <div class="chat-footer">
-            <label for="file-in"><i class="fas fa-paperclip" style="font-size: 20px; color: #666;"></i></label>
-            <input type="file" id="file-in" class="hidden" accept="image/*" onchange="window.sendImg(this)">
             <input type="text" id="m-input" placeholder="Type a message...">
-            <i class="fas fa-paper-plane" onclick="window.sendMsg()" style="color: var(--wa-teal); font-size: 22px;"></i>
+            <button onclick="window.sendMsg()" style="border:none; background:none; color:var(--wa-teal);"><i class="fas fa-paper-plane" style="font-size:22px;"></i></button>
         </div>
     </div>
 
-    <div id="zego-container" class="hidden"></div>
+    <div id="call-root" class="hidden"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = { 
             apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
@@ -96,47 +86,40 @@
             appId: "1:264696350288:web:8c0367e6dce7c5f5517355" 
         };
 
-        const ZEGO_ID = 1196176620; 
-        const ZEGO_SECRET = "a5137871a508226e73c23d027ab37107";
-
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        let me = null;
-        let peer = null;
-        let unsubscribe = null;
+        let me = null, peer = null, unsub = null;
 
         window.doLogin = () => {
-            const e = document.getElementById('l-email').value;
-            const p = document.getElementById('l-pass').value;
-            signInWithEmailAndPassword(auth, e, p).catch(err => alert(err.message));
+            signInWithEmailAndPassword(auth, document.getElementById('l-email').value, document.getElementById('l-pass').value).catch(e => alert(e.message));
         };
 
         window.logout = () => signOut(auth);
 
-        onAuthStateChanged(auth, user => {
-            if (user) {
-                me = user;
+        onAuthStateChanged(auth, u => {
+            if(u) {
+                me = u;
                 document.getElementById('login-screen').classList.add('hidden');
-                document.getElementById('main-screen').classList.remove('hidden');
-                loadContacts();
+                document.getElementById('main-app').classList.remove('hidden');
+                loadUsers();
             } else {
                 document.getElementById('login-screen').classList.remove('hidden');
-                document.getElementById('main-screen').classList.add('hidden');
+                document.getElementById('main-app').classList.add('hidden');
             }
         });
 
-        async function loadContacts() {
+        async function loadUsers() {
             const snap = await getDocs(collection(db, "users"));
-            const list = document.getElementById('contact-list');
+            const list = document.getElementById('user-list-container');
             list.innerHTML = "";
             snap.forEach(d => {
                 const u = d.data();
-                if (u.email !== me.email) {
+                if(u.email !== me.email) {
                     const div = document.createElement('div');
-                    div.className = "user-list-item";
-                    div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${u.email}"><div><b>${u.email}</b><br><small>Online</small></div>`;
+                    div.className = "user-item";
+                    div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${u.email}"><b>${u.email}</b>`;
                     div.onclick = () => openChat(u.uid || d.id, u.email);
                     list.appendChild(div);
                 }
@@ -148,70 +131,56 @@
             document.getElementById('chat-window').classList.add('open');
             document.getElementById('chat-name').innerText = email;
             document.getElementById('chat-avatar').src = `https://ui-avatars.com/api/?name=${email}`;
-            listenMessages();
+            listen();
         }
 
         window.closeChat = () => {
             document.getElementById('chat-window').classList.remove('open');
-            if (unsubscribe) unsubscribe();
+            if(unsub) unsub();
         };
 
         window.sendMsg = async () => {
-            const val = document.getElementById('m-input').value;
-            if (!val) return;
-            const chatId = me.uid < peer.id ? me.uid + peer.id : peer.id + me.uid;
-            await addDoc(collection(db, "messages"), { 
-                chatId, sender: me.uid, text: val, type: 'text', time: Date.now() 
-            });
+            const text = document.getElementById('m-input').value;
+            if(!text) return;
+            const cid = me.uid < peer.id ? me.uid + peer.id : peer.id + me.uid;
+            await addDoc(collection(db, "messages"), { cid, sender: me.uid, text, time: Date.now() });
             document.getElementById('m-input').value = "";
         };
 
-        window.sendImg = (input) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(input.files[0]);
-            reader.onload = async () => {
-                const chatId = me.uid < peer.id ? me.uid + peer.id : peer.id + me.uid;
-                await addDoc(collection(db, "messages"), { 
-                    chatId, sender: me.uid, img: reader.result, type: 'image', time: Date.now() 
-                });
-            };
-        };
-
-        window.delMsg = async (id) => {
-            if(confirm("Delete this message?")) await deleteDoc(doc(db, "messages", id));
-        };
-
-        function listenMessages() {
-            const chatId = me.uid < peer.id ? me.uid + peer.id : peer.id + me.uid;
-            const q = query(collection(db, "messages"), where("chatId", "==", chatId), orderBy("time", "asc"));
-            
-            unsubscribe = onSnapshot(q, snap => {
-                const container = document.getElementById('msg-container');
-                container.innerHTML = "";
+        function listen() {
+            const cid = me.uid < peer.id ? me.uid + peer.id : peer.id + me.uid;
+            const q = query(collection(db, "messages"), where("cid", "==", cid), orderBy("time", "asc"));
+            unsub = onSnapshot(q, snap => {
+                const cont = document.getElementById('msg-container');
+                cont.innerHTML = "";
                 snap.forEach(d => {
                     const m = d.data();
                     const div = document.createElement('div');
                     div.className = `msg ${m.sender === me.uid ? 'sent' : 'received'}`;
-                    const content = m.type === 'text' ? m.text : `<img src="${m.img}" style="width:100%; border-radius:5px;">`;
-                    const time = new Date(m.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    
-                    div.innerHTML = `${content} <span class="msg-time">${time}</span>
-                                    <div class="msg-delete" onclick="window.delMsg('${d.id}')">×</div>`;
-                    container.appendChild(div);
+                    div.innerText = m.text;
+                    cont.appendChild(div);
                 });
-                container.scrollTop = container.scrollHeight;
+                cont.scrollTop = cont.scrollHeight;
             });
         }
 
-        window.call = (type) => {
-            const room = me.uid < peer.id ? me.uid + peer.id : peer.id + me.uid;
-            const token = ZegoUIKitPrebuilt.generateKitTokenForTest(ZEGO_ID, ZEGO_SECRET, room, me.uid, me.email);
-            const zp = ZegoUIKitPrebuilt.create(token);
-            document.getElementById('zego-container').classList.remove('hidden');
+        // --- ZEGO CALL LOGIC ---
+        window.startCall = () => {
+            const appID = 1196176620;
+            const serverSecret = "a5137871a508226e73c23d027ab37107";
+            const roomID = me.uid < peer.id ? me.uid + peer.id : peer.id + me.uid;
+            
+            const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, roomID, me.uid, me.email);
+            const zp = ZegoUIKitPrebuilt.create(kitToken);
+
+            document.getElementById('call-root').classList.remove('hidden');
             zp.joinRoom({
-                container: document.getElementById('zego-container'),
-                scenario: { mode: type === 'video' ? ZegoUIKitPrebuilt.OneONoneCall : ZegoUIKitPrebuilt.GroupCall },
-                onLeaveRoom: () => document.getElementById('zego-container').classList.add('hidden')
+                container: document.querySelector("#call-root"),
+                scenario: { mode: ZegoUIKitPrebuilt.OneONoneCall },
+                showScreenSharingButton: true,
+                onLeaveRoom: () => {
+                    document.getElementById('call-root').classList.add('hidden');
+                }
             });
         };
     </script>
