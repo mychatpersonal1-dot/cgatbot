@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WhatsApp Pro - Admin Control</title>
+    <title>WhatsApp Pro - Final Fix</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
     <style>
@@ -11,28 +11,23 @@
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background: #dadbd3; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         .hidden { display: none !important; }
-        header { background: var(--wa-teal); color: white; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; }
+        header { background: var(--wa-teal); color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
         .last-seen { font-size: 11px; color: #cfd8dc; display: block; }
-        #chat-window { position: fixed; inset: 0; background: var(--wa-bg); z-index: 2000; display: flex; flex-direction: column; transform: translateX(100%); transition: 0.3s; }
+        #chat-window { position: fixed; inset: 0; background: var(--wa-bg); z-index: 2000; display: flex; flex-direction: column; transform: translateX(100%); transition: 0.3s ease; }
         #chat-window.open { transform: translateX(0); }
         .msg-area { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
-        .msg { padding: 6px 10px; border-radius: 8px; margin-bottom: 4px; max-width: 85%; font-size: 14.5px; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.1); cursor: pointer; user-select: none; }
+        .msg { padding: 8px 12px; border-radius: 8px; margin-bottom: 5px; max-width: 80%; font-size: 15px; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
         .sent { align-self: flex-end; background: #dcf8c6; }
         .received { align-self: flex-start; background: white; }
-        .msg-meta { display: flex; align-items: center; justify-content: flex-end; font-size: 10px; color: #777; margin-top: 2px; }
-        .blue-tick { color: var(--wa-blue); }
-        .user-item { display: flex; align-items: center; padding: 12px; background: white; border-bottom: 1px solid #eee; cursor: pointer; }
-        .user-item img { width: 45px; height: 45px; border-radius: 50%; margin-right: 12px; }
-        
-        /* ADMIN PANEL UI */
+        .msg-meta { display: flex; align-items: center; justify-content: flex-end; font-size: 10px; color: #777; margin-top: 3px; }
+        .blue-tick { color: var(--wa-blue); margin-left: 3px; }
+        .user-item { display: flex; align-items: center; padding: 15px; background: white; border-bottom: 1px solid #eee; cursor: pointer; }
+        .user-item img { width: 45px; height: 45px; border-radius: 50%; margin-right: 15px; }
         #admin-panel { position: fixed; inset: 0; background: #f0f2f5; z-index: 5000; display: flex; flex-direction: column; }
         .admin-section { background: white; margin: 10px; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .admin-input { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 5px; }
-        .btn-add { width: 100%; padding: 10px; background: var(--wa-teal); color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
-        .admin-list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
-        .admin-actions i { margin-left: 15px; cursor: pointer; padding: 5px; }
-        .btn-danger { color: #e74c3c; }
-        .btn-edit { color: #3498db; }
+        .admin-input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        .btn-add { width: 100%; padding: 12px; background: var(--wa-teal); color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+        .admin-list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: white; margin-bottom: 5px; border-radius: 5px; }
     </style>
 </head>
 <body>
@@ -41,7 +36,7 @@
         <img id="full-img" style="max-width:100%; max-height:100%;">
     </div>
     
-    <div id="call-root" class="hidden" style="position:fixed; inset:0; z-index:5000;"></div>
+    <div id="call-root" class="hidden"></div>
 
     <div id="admin-panel" class="hidden">
         <header>
@@ -49,37 +44,33 @@
             <b>Admin Dashboard</b>
             <span></span>
         </header>
-        
         <div style="flex:1; overflow-y:auto;">
             <div class="admin-section">
-                <h4 style="margin-bottom:10px; color:var(--wa-teal);">Create New User</h4>
+                <h4>Create New User</h4>
                 <input type="email" id="new-user-email" class="admin-input" placeholder="User Email">
                 <input type="text" id="new-user-pass" class="admin-input" placeholder="User Password">
-                <button onclick="window.createUser()" class="btn-add">Save User & Password</button>
+                <button onclick="window.createUser()" class="btn-add">ADD USER</button>
             </div>
-
-            <div class="admin-section">
-                <h4 style="margin-bottom:10px; color:var(--wa-teal);">Manage Users</h4>
-                <div id="admin-user-list"></div>
-            </div>
+            <div id="admin-user-list" style="padding:10px;"></div>
         </div>
     </div>
 
     <div id="login-screen" style="position:fixed; inset:0; background:var(--wa-teal); z-index:10000; display:flex; align-items:center; justify-content:center;">
         <div style="background:white; padding:30px; border-radius:10px; width:90%; max-width:350px;">
             <h2 style="text-align:center; color:var(--wa-teal); margin-bottom:20px;">WhatsApp Pro</h2>
-            <input type="email" id="l-email" placeholder="Email" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd;">
-            <input type="password" id="l-pass" placeholder="Password" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd;">
-            <button onclick="window.doLogin()" style="width:100%; padding:12px; background:var(--wa-green); color:white; border:none; border-radius:5px; font-weight:bold;">LOGIN</button>
+            <input type="email" id="l-email" placeholder="Email" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:5px;">
+            <input type="password" id="l-pass" placeholder="Password" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:5px;">
+            <button onclick="window.doLogin()" style="width:100%; padding:12px; background:var(--wa-green); color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">LOGIN</button>
+            <p style="font-size: 11px; text-align: center; color: #777; margin-top: 15px;">Admin Login: admin@gmail.com</p>
         </div>
     </div>
 
     <div id="main-app" class="hidden">
         <header>
-            <b>WhatsApp</b> 
+            <b>WhatsApp Pro</b> 
             <div>
                 <i class="fas fa-user-shield hidden" id="admin-icon" style="margin-right:20px; cursor:pointer;" onclick="window.showAdmin()"></i>
-                <i class="fas fa-sign-out-alt" onclick="window.logout()"></i>
+                <i class="fas fa-sign-out-alt" onclick="window.logout()" style="cursor:pointer;"></i>
             </div>
         </header>
         <div id="user-list"></div>
@@ -87,191 +78,196 @@
 
     <div id="chat-window">
         <div style="background:var(--wa-teal); color:white; padding:10px; display:flex; align-items:center;">
-            <i class="fas fa-arrow-left" onclick="window.closeChat()"></i>
-            <div style="flex:1; margin-left:15px;">
+            <i class="fas fa-arrow-left" onclick="window.closeChat()" style="padding:10px; cursor:pointer;"></i>
+            <div style="flex:1; margin-left:10px;">
                 <b id="chat-name">User</b>
                 <span id="chat-lastseen" class="last-seen">Offline</span>
             </div>
-            <i class="fas fa-video" id="video-icon" onclick="window.startCall('video')" style="margin-right:20px; opacity:0.5;"></i>
-            <i class="fas fa-phone" id="audio-icon" onclick="window.startCall('audio')" style="opacity:0.5;"></i>
+            <i class="fas fa-video" id="video-icon" onclick="window.startCall('video')" style="margin-right:20px; cursor:pointer;"></i>
         </div>
         <div id="msg-area" class="msg-area"></div>
         <div style="padding:10px; background:#f0f0f0; display:flex; align-items:center;">
-            <label for="img-in"><i class="fas fa-paperclip" style="padding:10px; transform: rotate(45deg);"></i></label>
+            <label for="img-in"><i class="fas fa-camera" style="padding:10px; color:#555; cursor:pointer;"></i></label>
             <input type="file" id="img-in" class="hidden" accept="image/*" onchange="window.sendImage(this)">
-            <input type="text" id="m-input" placeholder="Type a message..." style="flex:1; padding:10px; border-radius:20px; border:none; margin:0 10px;">
-            <i class="fas fa-paper-plane" onclick="window.sendMsg()" style="color:var(--wa-teal); font-size:22px;"></i>
+            <input type="text" id="m-input" placeholder="Type a message..." style="flex:1; padding:10px; border-radius:20px; border:none; margin:0 10px; outline:none;">
+            <i class="fas fa-paper-plane" onclick="window.sendMsg()" style="color:var(--wa-teal); font-size:22px; cursor:pointer;"></i>
         </div>
     </div>
 
-   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-    import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, setDoc, deleteDoc, serverTimestamp, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, setDoc, deleteDoc, serverTimestamp, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    const firebaseConfig = { 
-        apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
-        authDomain: "my-chat-project-4e376.firebaseapp.com", 
-        projectId: "my-chat-project-4e376", 
-        appId: "1:264696350288:web:8c0367e6dce7c5f5517355",
-        storageBucket: "my-chat-project-4e376.appspot.com" 
-    };
+        const firebaseConfig = { 
+            apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
+            authDomain: "my-chat-project-4e376.firebaseapp.com", 
+            projectId: "my-chat-project-4e376", 
+            appId: "1:264696350288:web:8c0367e6dce7c5f5517355"
+        };
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const storage = getStorage(app);
-    let me = null, peer = null;
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        let me = null, peer = null, unsubMsg = null;
 
-    const ADMIN_EMAIL = "admin@gmail.com"; 
+        const ADMIN_EMAIL = "admin@gmail.com"; 
 
-    // --- STATUS UPDATE ---
-    const updateStatus = async (st) => {
-        if (me?.email) await setDoc(doc(db, "presence", me.email), { status: st, lastSeen: serverTimestamp() }, { merge: true });
-    };
+        // --- LOGIN FIX ---
+        window.doLogin = async () => {
+            const e = document.getElementById('l-email').value.trim();
+            const p = document.getElementById('l-pass').value.trim();
+            if(!e || !p) return alert("Email/Pass bhariye!");
 
-    // --- LOGIN ---
-    window.doLogin = async () => {
-        const e = document.getElementById('l-email').value.trim();
-        const p = document.getElementById('l-pass').value.trim();
-        try {
-            const userSnap = await getDoc(doc(db, "users", e));
-            if(userSnap.exists() && userSnap.data().password === p) {
-                await signInWithEmailAndPassword(auth, e, p);
-            } else { alert("Galat Password!"); }
-        } catch (err) { alert("User nahi mila!"); }
-    };
-
-    onAuthStateChanged(auth, (u) => {
-        if(u) {
-            me = u;
-            document.getElementById('login-screen').classList.add('hidden');
-            document.getElementById('main-app').classList.remove('hidden');
-            if(me.email === ADMIN_EMAIL) document.getElementById('admin-icon').classList.remove('hidden');
-            updateStatus("online"); loadList(); checkSDK();
-        } else {
-            document.getElementById('login-screen').classList.remove('hidden');
-            document.getElementById('main-app').classList.add('hidden');
-        }
-    });
-
-    // --- IMAGE SENDING LOGIC ---
-    window.sendImage = async (input) => {
-        if (!input.files[0] || !peer) return;
-        const file = input.files[0];
-        const path = `chats/${Date.now()}_${file.name}`;
-        const sRef = ref(storage, path);
-        
-        try {
-            const task = await uploadBytes(sRef, file);
-            const url = await getDownloadURL(task.ref);
-            const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
-            
-            await addDoc(collection(db, "messages"), { 
-                cid, sender: me.email, img: url, type: "image", 
-                time: Date.now(), read: false, 
-                displayTime: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) 
-            });
-        } catch (e) { alert("Image upload failed!"); }
-    };
-
-    // --- PREVIEW IMAGE ---
-    window.previewImg = (url) => {
-        const box = document.getElementById('preview-box');
-        const img = document.getElementById('full-img');
-        img.src = url;
-        box.style.display = 'flex';
-    };
-
-    // --- CHAT LOGIC ---
-    window.sendMsg = async () => {
-        const input = document.getElementById('m-input');
-        if(!input.value || !peer) return;
-        const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
-        await addDoc(collection(db, "messages"), { 
-            cid, sender: me.email, text: input.value, type: "text", 
-            time: Date.now(), read: false, 
-            displayTime: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) 
-        });
-        input.value = "";
-    };
-
-    function listen() {
-        const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
-        const q = query(collection(db, "messages"), where("cid", "==", cid), orderBy("time", "asc"));
-        onSnapshot(q, snap => {
-            const area = document.getElementById('msg-area'); area.innerHTML = "";
-            snap.forEach(d => {
-                const m = d.data();
-                const div = document.createElement('div');
-                div.className = `msg ${m.sender === me.email ? 'sent' : 'received'}`;
-                
-                // Content logic: Text ya Image
-                let content = m.type === "image" 
-                    ? `<img src="${m.img}" style="max-width:200px; border-radius:5px; cursor:pointer;" onclick="window.previewImg('${m.img}')">` 
-                    : `<div>${m.text}</div>`;
-                
-                div.innerHTML = `${content}<div class="msg-meta">${m.displayTime} ${m.sender === me.email ? '<i class="fas fa-check-double '+(m.read?'blue-tick':'')+'"></i>' : ''}</div>`;
-                area.appendChild(div);
-                if(!m.read && m.sender !== me.email) updateDoc(doc(db, "messages", d.id), { read: true });
-            });
-            area.scrollTop = area.scrollHeight;
-        });
-    }
-
-    // --- ADMIN PANEL (Copy from previous) ---
-    window.showAdmin = async () => {
-        document.getElementById('admin-panel').classList.remove('hidden');
-        const snap = await getDocs(collection(db, "users"));
-        const list = document.getElementById('admin-user-list');
-        list.innerHTML = "";
-        snap.forEach(d => {
-            const u = d.data();
-            list.innerHTML += `<div class="admin-list-item"><b>${u.email}</b> 
-            <div class="admin-actions">
-                <i class="fas fa-key btn-edit" onclick="window.resetPass('${u.email}')"></i>
-                <i class="fas fa-trash-alt btn-danger" onclick="window.adminDeleteUser('${u.email}')"></i>
-            </div></div>`;
-        });
-    };
-
-    window.createUser = async () => {
-        const e = document.getElementById('new-user-email').value;
-        const p = document.getElementById('new-user-pass').value;
-        await setDoc(doc(db, "users", e), { email: e, password: p, createdAt: serverTimestamp() });
-        alert("User Added in DB!"); window.showAdmin();
-    };
-
-    window.resetPass = async (e) => {
-        const p = prompt("Naya password:");
-        if(p) await updateDoc(doc(db, "users", e), { password: p });
-    };
-
-    window.adminDeleteUser = async (e) => {
-        if(confirm("Delete?")) await deleteDoc(doc(db, "users", e)); window.showAdmin();
-    };
-
-    // --- OTHERS ---
-    function loadList() {
-        onSnapshot(collection(db, "users"), snap => {
-            const list = document.getElementById('user-list'); list.innerHTML = "";
-            snap.forEach(d => {
-                if(d.data().email !== me.email) {
-                    const div = document.createElement('div'); div.className = "user-item";
-                    div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${d.data().email}"> <b>${d.data().email}</b>`;
-                    div.onclick = () => { peer = {email: d.data().email}; document.getElementById('chat-window').classList.add('open'); document.getElementById('chat-name').innerText=peer.email; listen(); };
-                    list.appendChild(div);
+            try {
+                // Admin login bypass check
+                if(e === ADMIN_EMAIL) {
+                    await signInWithEmailAndPassword(auth, e, p).catch(async () => {
+                        await createUserWithEmailAndPassword(auth, e, p);
+                    });
+                    await setDoc(doc(db, "users", e), { email: e, password: p, role: "admin" }, { merge: true });
+                    return;
                 }
-            });
-        });
-    }
 
-    window.logout = () => { updateStatus("offline"); signOut(auth); location.reload(); };
-    window.closeChat = () => document.getElementById('chat-window').classList.remove('open');
-    function checkSDK() { setInterval(() => { if(window.ZegoUIKitPrebuilt) { document.getElementById('video-icon').style.opacity = "1"; document.getElementById('audio-icon').style.opacity = "1"; } }, 1000); }
-    window.startCall = async () => { /* Purana Zego Logic */ };
-</script>
+                // Normal user check in Firestore
+                const uSnap = await getDoc(doc(db, "users", e));
+                if(uSnap.exists() && uSnap.data().password === p) {
+                    await signInWithEmailAndPassword(auth, e, p).catch(async () => {
+                        await createUserWithEmailAndPassword(auth, e, p);
+                    });
+                } else {
+                    alert("User DB mein nahi hai ya Password galat hai!");
+                }
+            } catch (err) { alert("Error: " + err.message); }
+        };
+
+        onAuthStateChanged(auth, u => {
+            if(u) {
+                me = u;
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
+                if(me.email === ADMIN_EMAIL) document.getElementById('admin-icon').classList.remove('hidden');
+                updateStatus("online"); loadList();
+            } else {
+                document.getElementById('login-screen').classList.remove('hidden');
+                document.getElementById('main-app').classList.add('hidden');
+            }
+        });
+
+        const updateStatus = async (st) => {
+            if (me) await setDoc(doc(db, "presence", me.email), { status: st, lastSeen: serverTimestamp() }, { merge: true });
+        };
+
+        // --- CHAT LOGIC ---
+        window.sendMsg = async () => {
+            const inp = document.getElementById('m-input');
+            if(!inp.value || !peer) return;
+            const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
+            await addDoc(collection(db, "messages"), {
+                cid, sender: me.email, text: inp.value, type: "text",
+                time: Date.now(), read: false,
+                dt: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+            });
+            inp.value = "";
+        };
+
+        window.sendImage = (input) => {
+            const file = input.files[0];
+            if(!file || file.size > 800000) return alert("File too big! (Max 800KB)");
+            const reader = new FileReader();
+            reader.onload = async () => {
+                const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
+                await addDoc(collection(db, "messages"), {
+                    cid, sender: me.email, img: reader.result, type: "image",
+                    time: Date.now(), read: false,
+                    dt: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+                });
+            };
+            reader.readAsDataURL(file);
+        };
+
+        function listen() {
+            const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
+            const q = query(collection(db, "messages"), where("cid", "==", cid), orderBy("time", "asc"));
+            if(unsubMsg) unsubMsg();
+            unsubMsg = onSnapshot(q, snap => {
+                const area = document.getElementById('msg-area'); area.innerHTML = "";
+                snap.forEach(d => {
+                    const m = d.data();
+                    if(!m.read && m.sender !== me.email) updateDoc(doc(db, "messages", d.id), { read: true });
+
+                    const div = document.createElement('div');
+                    div.className = `msg ${m.sender === me.email ? 'sent' : 'received'}`;
+                    let body = m.type === "image" ? `<img src="${m.img}" style="width:100%; border-radius:5px;" onclick="window.previewImg('${m.img}')">` : `<div>${m.text}</div>`;
+                    div.innerHTML = `${body}<div class="msg-meta">${m.dt} ${m.sender === me.email ? `<i class="fas fa-check-double ${m.read ? 'blue-tick' : ''}"></i>` : ''}</div>`;
+                    area.appendChild(div);
+                });
+                area.scrollTop = area.scrollHeight;
+            });
+        }
+
+        // --- ADMIN CONTROL ---
+        window.showAdmin = async () => {
+            document.getElementById('admin-panel').classList.remove('hidden');
+            const snap = await getDocs(collection(db, "users"));
+            const list = document.getElementById('admin-user-list');
+            list.innerHTML = "<h4>Total Users</h4>";
+            snap.forEach(d => {
+                const u = d.data();
+                list.innerHTML += `<div class="admin-list-item">
+                    <span>${u.email} <br> <small>Pass: ${u.password}</small></span>
+                    <i class="fas fa-trash-alt" style="color:red; cursor:pointer;" onclick="window.adminDeleteUser('${u.email}')"></i>
+                </div>`;
+            });
+        };
+
+        window.createUser = async () => {
+            const e = document.getElementById('new-user-email').value.trim();
+            const p = document.getElementById('new-user-pass').value.trim();
+            if(!e || !p) return alert("Empty fields!");
+            await setDoc(doc(db, "users", e), { email: e, password: p, role: "user" });
+            alert("User Added!"); window.showAdmin();
+        };
+
+        window.adminDeleteUser = async (e) => { if(confirm("Delete " + e + "?")) { await deleteDoc(doc(db, "users", e)); window.showAdmin(); } };
+
+        // --- UTILS ---
+        function loadList() {
+            onSnapshot(collection(db, "users"), snap => {
+                const list = document.getElementById('user-list'); list.innerHTML = "";
+                snap.forEach(d => {
+                    const u = d.data();
+                    if(u.email !== me.email) {
+                        const div = document.createElement('div'); div.className = "user-item";
+                        div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${u.email}&background=random"> <b>${u.email}</b>`;
+                        div.onclick = () => { 
+                            peer = {email: u.email}; 
+                            document.getElementById('chat-window').classList.add('open'); 
+                            document.getElementById('chat-name').innerText = u.email;
+                            onSnapshot(doc(db, "presence", u.email), d2 => {
+                                document.getElementById('chat-lastseen').innerText = d2.data()?.status === "online" ? "Online" : "Offline";
+                            });
+                            listen(); 
+                        };
+                        list.appendChild(div);
+                    }
+                });
+            });
+        }
+
+        window.previewImg = (s) => { document.getElementById('full-img').src=s; document.getElementById('preview-box').style.display='flex'; };
+        window.logout = () => { updateStatus("offline"); signOut(auth).then(()=>location.reload()); };
+        window.closeChat = () => { document.getElementById('chat-window').classList.remove('open'); if(unsubMsg) unsubMsg(); };
+
+        // --- VIDEO CALL ---
+        window.startCall = async () => {
+            const container = document.getElementById('call-root');
+            container.classList.remove('hidden');
+            const roomID = (me.email < peer.email ? me.email+peer.email : peer.email+me.email).replace(/[^a-zA-Z0-9]/g, "");
+            const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(1196176620, "a5137871a508226e73c23d027ab37107", roomID, me.email, me.email);
+            const zp = ZegoUIKitPrebuilt.create(kitToken);
+            zp.joinRoom({ container, scenario: { mode: ZegoUIKitPrebuilt.OneONoneCall }, onLeaveRoom: () => location.reload() });
+        };
+    </script>
 </body>
 </html>
-
