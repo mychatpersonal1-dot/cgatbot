@@ -30,7 +30,9 @@
         .admin-input { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 5px; }
         .btn-add { width: 100%; padding: 10px; background: var(--wa-teal); color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
         .admin-list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
-        .btn-danger { color: #e74c3c; cursor: pointer; padding: 5px; }
+        .admin-actions i { margin-left: 15px; cursor: pointer; padding: 5px; }
+        .btn-danger { color: #e74c3c; }
+        .btn-edit { color: #3498db; }
     </style>
 </head>
 <body>
@@ -52,12 +54,12 @@
             <div class="admin-section">
                 <h4 style="margin-bottom:10px; color:var(--wa-teal);">Create New User</h4>
                 <input type="email" id="new-user-email" class="admin-input" placeholder="User Email">
-                <button onclick="window.createUser()" class="btn-add">Add User to List</button>
-                <small style="color:red; display:block; margin-top:5px;">Note: User must still register in Firebase Auth first or use an existing Auth email.</small>
+                <input type="text" id="new-user-pass" class="admin-input" placeholder="User Password">
+                <button onclick="window.createUser()" class="btn-add">Save User & Password</button>
             </div>
 
             <div class="admin-section">
-                <h4 style="margin-bottom:10px; color:var(--wa-teal);">Manage Registered Users</h4>
+                <h4 style="margin-bottom:10px; color:var(--wa-teal);">Manage Users</h4>
                 <div id="admin-user-list"></div>
             </div>
         </div>
@@ -105,7 +107,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, setDoc, deleteDoc, serverTimestamp, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, setDoc, deleteDoc, serverTimestamp, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = { 
             apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
@@ -119,33 +121,37 @@
         const db = getFirestore(app);
         let me = null, peer = null;
 
-        const ADMIN_EMAIL = "admin@gmail.com";
+        const ADMIN_EMAIL = "admin@gmail.com"; // Is email ko Firestore me pehle add karein
 
-        // --- AUTH & STATUS ---
+        // --- AUTH ---
         const updateStatus = async (st) => {
             if (me) await setDoc(doc(db, "presence", me.email), { status: st, lastSeen: serverTimestamp() }, { merge: true });
         };
 
         window.doLogin = async () => {
-            const e = document.getElementById('l-email').value;
-            const p = document.getElementById('l-pass').value;
-            try { await signInWithEmailAndPassword(auth, e, p); } catch { alert("Login Error: Check credentials."); }
-        };
-
-        onAuthStateChanged(auth, u => {
-            if(u) {
-                me = u;
-                document.getElementById('login-screen').classList.add('hidden');
-                document.getElementById('main-app').classList.remove('hidden');
-                if(me.email === ADMIN_EMAIL) {
-                    document.getElementById('admin-icon').classList.remove('hidden');
-                    setupNotifications();
+            const e = document.getElementById('l-email').value.trim();
+            const p = document.getElementById('l-pass').value.trim();
+            
+            try {
+                // Pehle Firestore se password verify karenge
+                const userSnap = await getDoc(doc(db, "users", e));
+                if(userSnap.exists() && userSnap.data().password === p) {
+                    // Agar pass match hua toh manually login state set karenge
+                    me = { email: e };
+                    document.getElementById('login-screen').classList.add('hidden');
+                    document.getElementById('main-app').classList.remove('hidden');
+                    if(e === ADMIN_EMAIL) {
+                        document.getElementById('admin-icon').classList.remove('hidden');
+                        setupNotifications();
+                    }
+                    updateStatus("online");
+                    loadList();
+                    checkSDK();
+                } else {
+                    alert("Email ya Password galat hai!");
                 }
-                updateStatus("online");
-                loadList();
-                checkSDK();
-            }
-        });
+            } catch (err) { alert("Login failed!"); }
+        };
 
         // --- ADMIN FUNCTIONS ---
         window.showAdmin = async () => {
@@ -157,48 +163,45 @@
                 const u = d.data();
                 const div = document.createElement('div');
                 div.className = "admin-list-item";
-                div.innerHTML = `<span>${u.email}</span> <i class="fas fa-trash-alt btn-danger" onclick="window.adminDeleteUser('${d.id}', '${u.email}')"></i>`;
+                div.innerHTML = `
+                    <span><b>${u.email}</b></span>
+                    <div class="admin-actions">
+                        <i class="fas fa-key btn-edit" onclick="window.resetPass('${u.email}')" title="Change Password"></i>
+                        <i class="fas fa-trash-alt btn-danger" onclick="window.adminDeleteUser('${u.email}')"></i>
+                    </div>`;
                 list.appendChild(div);
             });
         };
 
         window.createUser = async () => {
             const email = document.getElementById('new-user-email').value.trim();
-            if(!email) return alert("Email daalein!");
+            const pass = document.getElementById('new-user-pass').value.trim();
+            if(!email || !pass) return alert("Email aur Password dono likhein!");
             try {
-                // Add to Firestore Users list
-                await addDoc(collection(db, "users"), { email: email, createdAt: serverTimestamp() });
-                alert("User added to database list!");
+                await setDoc(doc(db, "users", email), { email: email, password: pass, createdAt: serverTimestamp() });
+                alert("User created successfully!");
                 document.getElementById('new-user-email').value = "";
+                document.getElementById('new-user-pass').value = "";
                 window.showAdmin();
             } catch (e) { alert("Error adding user"); }
         };
 
-        window.adminDeleteUser = async (id, email) => {
+        window.resetPass = async (email) => {
+            const newPass = prompt(`Enter new password for ${email}:`);
+            if(newPass) {
+                await updateDoc(doc(db, "users", email), { password: newPass });
+                alert("Password Updated!");
+            }
+        };
+
+        window.adminDeleteUser = async (email) => {
             if(confirm(`Delete ${email}?`)) {
-                await deleteDoc(doc(db, "users", id));
+                await deleteDoc(doc(db, "users", email));
                 window.showAdmin();
             }
         };
 
-        // --- NOTIFICATIONS ---
-        function setupNotifications() {
-            if (Notification.permission !== "granted") Notification.requestPermission();
-            const q = query(collection(db, "messages"), where("read", "==", false));
-            onSnapshot(q, snap => {
-                snap.docChanges().forEach(change => {
-                    if (change.type === "added") {
-                        const m = change.doc.data();
-                        if(m.sender !== me.email) {
-                            new Notification("New Message", { body: `${m.sender}: ${m.text || '📷 Image'}` });
-                            new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3').play().catch(()=>{});
-                        }
-                    }
-                });
-            });
-        }
-
-        // --- APP LOGIC (UNCHANGED) ---
+        // --- PURANA CHAT LOGIC (UNTOUCHED) ---
         function loadList() {
             onSnapshot(collection(db, "users"), snap => {
                 const list = document.getElementById('user-list'); list.innerHTML = "";
@@ -243,16 +246,24 @@
                     if(!m.read && m.sender !== me.email) updateDoc(doc(db, "messages", mid), { read: true });
                     const div = document.createElement('div');
                     div.className = `msg ${m.sender === me.email ? 'sent' : 'received'}`;
-                    
-                    // Long press delete
                     let pt;
                     div.onmousedown = div.ontouchstart = () => { pt = setTimeout(async () => { if(confirm("Delete?")) await deleteDoc(doc(db, "messages", mid)); }, 800); };
                     div.onmouseup = div.ontouchend = () => clearTimeout(pt);
-
                     div.innerHTML = `<div>${m.text || ''}</div><div class="msg-meta">${m.displayTime} ${m.sender === me.email ? '<i class="fas fa-check-double '+(m.read?'blue-tick':'')+'"></i>' : ''}</div>`;
                     area.appendChild(div);
                 });
                 area.scrollTop = area.scrollHeight;
+            });
+        }
+
+        function setupNotifications() {
+            const q = query(collection(db, "messages"), where("read", "==", false));
+            onSnapshot(q, snap => {
+                snap.docChanges().forEach(change => {
+                    if (change.type === "added" && change.doc.data().sender !== me.email) {
+                        new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3').play().catch(()=>{});
+                    }
+                });
             });
         }
 
@@ -266,8 +277,7 @@
         };
 
         window.closeChat = () => document.getElementById('chat-window').classList.remove('open');
-        window.logout = async () => { await updateStatus("offline"); signOut(auth); location.reload(); };
+        window.logout = async () => { await updateStatus("offline"); location.reload(); };
     </script>
 </body>
 </html>
-
