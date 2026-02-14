@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WhatsApp Private - Pro</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --wa-green: #075E54; --wa-teal: #128C7E; --wa-light: #25D366; --bubble-sent: #e7ffdb; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: #dadbd3; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .hidden { display: none !important; }
+
+        /* Login UI */
+        #login-screen { height: 100vh; background: var(--wa-green); display: flex; align-items: center; justify-content: center; }
+        .login-card { background: white; padding: 30px; border-radius: 15px; width: 90%; max-width: 380px; text-align: center; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; }
+
+        /* Header & Tabs */
+        header { background: var(--wa-teal); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .tabs { background: var(--wa-teal); display: flex; color: rgba(255,255,255,0.7); font-size: 14px; font-weight: bold; }
+        .tab { flex: 1; text-align: center; padding: 15px 0; cursor: pointer; border-bottom: 3px solid transparent; transition: 0.3s; }
+        .active-tab { color: white; border-bottom: 3px solid white; }
+
+        /* Lists */
+        .list-area { flex: 1; overflow-y: auto; background: white; }
+        .user-item { display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #f2f2f2; cursor: pointer; }
+        .user-item:active { background: #f5f5f5; }
+        .user-item img { width: 50px; height: 50px; border-radius: 50%; margin-right: 15px; }
+
+        /* Chat Window */
+        #chat-window { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #efe7de; z-index: 100; display: flex; flex-direction: column; transform: translateX(100%); transition: 0.3s ease; }
+        #chat-window.open { transform: translateX(0); }
+        .msg-area { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
+        .msg { max-width: 80%; padding: 8px 12px; border-radius: 10px; margin-bottom: 8px; font-size: 15px; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
+        .sent { align-self: flex-end; background: var(--bubble-sent); border-top-right-radius: 0; }
+        .received { align-self: flex-start; background: white; border-top-left-radius: 0; }
+        .msg img { width: 100%; border-radius: 8px; margin-top: 5px; cursor: pointer; }
+
+        /* Footer */
+        .chat-footer { background: #f0f0f0; padding: 8px; display: flex; align-items: center; }
+        .chat-footer input { flex: 1; border: none; padding: 10px 15px; border-radius: 25px; margin: 0 8px; outline: none; }
+        
+        /* Admin Controls */
+        .admin-row { padding: 15px; border-bottom: 1px solid #ddd; background: #fafafa; display: flex; justify-content: space-between; }
+        .btn-status { padding: 5px 10px; border-radius: 5px; border: none; font-size: 12px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div id="login-screen">
+        <div class="login-card">
+            <i class="fab fa-whatsapp" style="font-size: 60px; color: var(--wa-green);"></i>
+            <h2 style="margin: 15px 0;">WhatsApp Private</h2>
+            <input type="email" id="email" placeholder="Email Address">
+            <input type="password" id="pass" placeholder="Password">
+            <button class="btn-status" style="width:100%; background:var(--wa-light); color:white; padding:12px; font-size:16px;" onclick="doLogin()">Login</button>
+        </div>
+    </div>
+
+    <div id="main-app" class="hidden" style="height: 100vh; display: flex; flex-direction: column;">
+        <header>
+            <b style="font-size: 20px;">WhatsApp Pro</b>
+            <i class="fas fa-sign-out-alt" onclick="logout()"></i>
+        </header>
+        
+        <div class="tabs">
+            <div class="tab active-tab" onclick="showTab('chats')">CHATS</div>
+            <div id="admin-only-tab" class="tab hidden" onclick="showTab('admin')">ADMIN</div>
+        </div>
+
+        <div id="tab-chats" class="list-area">
+            <div id="user-list"></div>
+        </div>
+
+        <div id="tab-admin" class="list-area hidden">
+            <div style="padding: 15px; background: #eee;">
+                <h4>Create New User</h4>
+                <input type="email" id="nu-email" placeholder="User Email">
+                <input type="text" id="nu-pass" placeholder="User Password">
+                <button class="btn-status" style="background:var(--wa-teal); color:white; width:100%;" onclick="createUser()">Add To Database</button>
+            </div>
+            <div id="admin-management-list"></div>
+        </div>
+    </div>
+
+    <div id="chat-window">
+        <nav style="background:var(--wa-teal); color:white; padding:10px; display:flex; align-items:center;">
+            <i class="fas fa-arrow-left" onclick="closeChat()" style="padding:10px;"></i>
+            <img id="chat-icon" src="" style="width:38px; height:38px; border-radius:50%; margin: 0 10px;">
+            <div style="flex: 1;"><b id="chat-title">Name</b></div>
+            <i class="fas fa-video" onclick="call('video')" style="margin-right:20px;"></i>
+            <i class="fas fa-phone" onclick="call('audio')"></i>
+        </nav>
+        <div class="msg-area" id="msg-area"></div>
+        <div class="chat-footer">
+            <label for="img-send"><i class="fas fa-paperclip" style="color:#555; font-size:22px; padding:5px;"></i></label>
+            <input type="file" id="img-send" class="hidden" accept="image/*" onchange="sendPhoto(this)">
+            <input type="text" id="msg-input" placeholder="Type a message">
+            <i class="fas fa-paper-plane" onclick="sendMsg()" style="color:var(--wa-teal); font-size:24px;"></i>
+        </div>
+    </div>
+
+    <div id="img-modal" class="hidden" style="position:fixed; top:0; background:rgba(0,0,0,0.9); width:100%; height:100%; z-index:2000; display:flex; align-items:center; justify-content:center;" onclick="this.classList.add('hidden')">
+        <img id="full-img" style="max-width:95%; max-height:85%;">
+    </div>
+
+    <div id="zego-container" class="hidden" style="position:fixed; top:0; width:100%; height:100%; z-index:999;"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, getDocs, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { ZegoUIKitPrebuilt } from "https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js";
+
+        // CONFIGS - PASTE YOURS HERE
+        const firebaseConfig = { apiKey: "YOUR_API_KEY", authDomain: "YOUR_ID.firebaseapp.com", projectId: "YOUR_ID", storageBucket: "YOUR_ID.appspot.com", messagingSenderId: "YOUR_ID", appId: "YOUR_ID" };
+        const ZEGO_ID = YOUR_ZEGO_ID; const ZEGO_SECRET = "YOUR_ZEGO_SECRET";
+        const ADMIN_EMAIL = "bandhubhai148@gmail.com";
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let me = null;
+        let peer = null;
+
+        window.doLogin = () => signInWithEmailAndPassword(auth, email.value, pass.value).catch(e => alert(e.message));
+        window.logout = () => signOut(auth);
+
+        onAuthStateChanged(auth, u => {
+            if(u) {
+                me = u;
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
+                if(u.email === ADMIN_EMAIL) document.getElementById('admin-only-tab').classList.remove('hidden');
+                loadUsers();
+            } else {
+                document.getElementById('login-screen').classList.remove('hidden');
+                document.getElementById('main-app').classList.add('hidden');
+            }
+        });
+
+        window.showTab = (t) => {
+            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active-tab'));
+            document.querySelectorAll('.list-area').forEach(el => el.classList.add('hidden'));
+            if(t === 'chats') {
+                document.getElementById('tab-chats').classList.remove('hidden');
+                document.querySelector('.tab:nth-child(1)').classList.add('active-tab');
+            } else {
+                document.getElementById('tab-admin').classList.remove('hidden');
+                document.querySelector('.tab:nth-child(2)').classList.add('active-tab');
+                loadAdminPanel();
+            }
+        };
+
+        // ADMIN: Management
+        window.createUser = async () => {
+            const email = document.getElementById('nu-email').value;
+            const pass = document.getElementById('nu-pass').value;
+            await addDoc(collection(db, "users"), { email, password: pass, status: 'active' });
+            alert("User record added. Please add same email/pass in Firebase Auth Console.");
+            loadAdminPanel();
+        };
+
+        async function loadAdminPanel() {
+            const snap = await getDocs(collection(db, "users"));
+            const list = document.getElementById('admin-management-list');
+            list.innerHTML = "";
+            snap.forEach(d => {
+                const u = d.data();
+                const div = document.createElement('div');
+                div.className = "admin-row";
+                div.innerHTML = `<span><b>${u.email}</b> (${u.status})</span>
+                    <div>
+                        <button class="btn-status" style="background:orange" onclick="toggleStatus('${d.id}', '${u.status}')">Status</button>
+                        <button class="btn-status" style="background:red; color:white" onclick="deleteUser('${d.id}')">X</button>
+                    </div>`;
+                list.appendChild(div);
+            });
+        }
+
+        window.toggleStatus = async (id, s) => {
+            await updateDoc(doc(db, "users", id), { status: s === 'active' ? 'blocked' : 'active' });
+            loadAdminPanel();
+        };
+
+        // CHAT: List & Messages
+        async function loadUsers() {
+            const snap = await getDocs(collection(db, "users"));
+            const list = document.getElementById('user-list');
+            list.innerHTML = "";
+            snap.forEach(d => {
+                const u = d.data();
+                if(u.email !== me.email && u.status === 'active') {
+                    const div = document.createElement('div');
+                    div.className = "user-item";
+                    div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${u.email}"><div><b>${u.email}</b><p>Tap to start conversation</p></div>`;
+                    div.onclick = () => openChat(d.id, u.email);
+                    list.appendChild(div);
+                }
+            });
+        }
+
+        function openChat(id, email) {
+            peer = {id, email};
+            document.getElementById('chat-window').classList.add('open');
+            document.getElementById('chat-title').innerText = email;
+            document.getElementById('chat-icon').src = `https://ui-avatars.com/api/?name=${email}`;
+            listen();
+        }
+
+        window.closeChat = () => document.getElementById('chat-window').classList.remove('open');
+
+        window.sendMsg = async () => {
+            const text = document.getElementById('msg-input').value;
+            if(!text) return;
+            const cid = me.uid < peer.id ? me.uid + peer.id : peer.id + me.uid;
+            await addDoc(collection(db, "messages"), { cid, sender: me.uid, text, type: 'text', time: Date.now() });
+            document.getElementById('msg-input').value = "";
+        };
+
+        window.sendPhoto = (input) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(input.files[0]);
+            reader.onload = async () => {
+                const cid = me.uid < peer.id ? me.uid + peer.id : peer.id + me.uid;
+                await addDoc(collection(db, "messages"), { cid, sender: me.uid, img: reader.result, type: 'image', time: Date.now() });
+            };
+        };
+
+        function listen() {
+            const cid = me.uid < peer.id ? me.uid + peer.id : peer.id + me.uid;
+            const q = query(collection(db, "messages"), where("cid", "==", cid), orderBy("time", "asc"));
+            onSnapshot(q, snap => {
+                const area = document.getElementById('msg-area');
+                area.innerHTML = "";
+                snap.forEach(d => {
+                    const m = d.data();
+                    const div = document.createElement('div');
+                    div.className = `msg ${m.sender === me.uid ? 'sent' : 'received'}`;
+                    div.innerHTML = m.type === 'text' ? m.text : `<img src="${m.img}" onclick="zoom('${m.img}')">`;
+                    area.appendChild(div);
+                });
+                area.scrollTop = area.scrollHeight;
+            });
+        }
+
+        window.zoom = (src) => { document.getElementById('full-img').src = src; document.getElementById('img-modal').classList.remove('hidden'); };
+
+        // CALLING
+        window.call = (type) => {
+            const room = me.uid < peer.id ? me.uid + peer.id : peer.id + me.uid;
+            const token = ZegoUIKitPrebuilt.generateKitTokenForTest(ZEGO_ID, ZEGO_SECRET, room, me.uid, me.email);
+            const zp = ZegoUIKitPrebuilt.create(token);
+            document.getElementById('zego-container').classList.remove('hidden');
+            zp.joinRoom({
+                container: document.getElementById('zego-container'),
+                scenario: { mode: type === 'video' ? ZegoUIKitPrebuilt.OneONoneCall : ZegoUIKitPrebuilt.GroupCall },
+                onLeaveRoom: () => document.getElementById('zego-container').classList.add('hidden')
+            });
+        };
+    </script>
+</body>
+</html>
