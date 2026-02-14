@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WhatsApp Pro - Final Fix</title>
+    <title>WhatsApp Pro - Login Fixed</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
     <style>
@@ -11,7 +11,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background: #dadbd3; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         .hidden { display: none !important; }
-        header { background: var(--wa-teal); color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        header { background: var(--wa-teal); color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; }
         .last-seen { font-size: 11px; color: #cfd8dc; display: block; }
         #chat-window { position: fixed; inset: 0; background: var(--wa-bg); z-index: 2000; display: flex; flex-direction: column; transform: translateX(100%); transition: 0.3s ease; }
         #chat-window.open { transform: translateX(0); }
@@ -27,16 +27,9 @@
         .admin-section { background: white; margin: 10px; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .admin-input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 5px; }
         .btn-add { width: 100%; padding: 12px; background: var(--wa-teal); color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
-        .admin-list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: white; margin-bottom: 5px; border-radius: 5px; }
     </style>
 </head>
 <body>
-
-    <div id="preview-box" onclick="this.style.display='none'" style="position:fixed; inset:0; background:black; z-index:9000; display:none; align-items:center; justify-content:center;">
-        <img id="full-img" style="max-width:100%; max-height:100%;">
-    </div>
-    
-    <div id="call-root" class="hidden"></div>
 
     <div id="admin-panel" class="hidden">
         <header>
@@ -61,13 +54,12 @@
             <input type="email" id="l-email" placeholder="Email" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:5px;">
             <input type="password" id="l-pass" placeholder="Password" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:5px;">
             <button onclick="window.doLogin()" style="width:100%; padding:12px; background:var(--wa-green); color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">LOGIN</button>
-            <p style="font-size: 11px; text-align: center; color: #777; margin-top: 15px;">Admin Login: admin@gmail.com</p>
         </div>
     </div>
 
     <div id="main-app" class="hidden">
         <header>
-            <b>WhatsApp Pro</b> 
+            <b>WhatsApp</b> 
             <div>
                 <i class="fas fa-user-shield hidden" id="admin-icon" style="margin-right:20px; cursor:pointer;" onclick="window.showAdmin()"></i>
                 <i class="fas fa-sign-out-alt" onclick="window.logout()" style="cursor:pointer;"></i>
@@ -83,7 +75,7 @@
                 <b id="chat-name">User</b>
                 <span id="chat-lastseen" class="last-seen">Offline</span>
             </div>
-            <i class="fas fa-video" id="video-icon" onclick="window.startCall('video')" style="margin-right:20px; cursor:pointer;"></i>
+            <i class="fas fa-video" id="video-icon" onclick="window.startCall()" style="margin-right:20px; cursor:pointer;"></i>
         </div>
         <div id="msg-area" class="msg-area"></div>
         <div style="padding:10px; background:#f0f0f0; display:flex; align-items:center;">
@@ -109,36 +101,44 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        let me = null, peer = null, unsubMsg = null;
-
+        let me = null, peer = null;
         const ADMIN_EMAIL = "admin@gmail.com"; 
 
-        // --- LOGIN FIX ---
+        // --- NEW LOGIN LOGIC (FIXED) ---
         window.doLogin = async () => {
             const e = document.getElementById('l-email').value.trim();
             const p = document.getElementById('l-pass').value.trim();
             if(!e || !p) return alert("Email/Pass bhariye!");
 
             try {
-                // Admin login bypass check
-                if(e === ADMIN_EMAIL) {
-                    await signInWithEmailAndPassword(auth, e, p).catch(async () => {
-                        await createUserWithEmailAndPassword(auth, e, p);
-                    });
-                    await setDoc(doc(db, "users", e), { email: e, password: p, role: "admin" }, { merge: true });
-                    return;
-                }
-
-                // Normal user check in Firestore
+                // Pehle Database mein check karo
                 const uSnap = await getDoc(doc(db, "users", e));
-                if(uSnap.exists() && uSnap.data().password === p) {
-                    await signInWithEmailAndPassword(auth, e, p).catch(async () => {
+                
+                if(uSnap.exists()) {
+                    const userData = uSnap.data();
+                    if(userData.password === p) {
+                        // Agar DB mein hai, toh Firebase Auth mein login koshish karo
+                        try {
+                            await signInWithEmailAndPassword(auth, e, p);
+                        } catch (err) {
+                            // Agar Auth mein nahi hai (Naya User), toh Auto-Register karo
+                            if(err.code === 'auth/user-not-found') {
+                                await createUserWithEmailAndPassword(auth, e, p);
+                            } else { throw err; }
+                        }
+                    } else { alert("Galat Password!"); }
+                } else if(e === ADMIN_EMAIL) {
+                    // Admin ke liye direct creation agar pehli baar hai
+                    try {
+                        await signInWithEmailAndPassword(auth, e, p);
+                    } catch {
                         await createUserWithEmailAndPassword(auth, e, p);
-                    });
+                        await setDoc(doc(db, "users", e), { email: e, password: p, role: "admin" });
+                    }
                 } else {
-                    alert("User DB mein nahi hai ya Password galat hai!");
+                    alert("User database mein nahi mila! Pehle Admin panel se banayein.");
                 }
-            } catch (err) { alert("Error: " + err.message); }
+            } catch (error) { alert("Error: " + error.message); }
         };
 
         onAuthStateChanged(auth, u => {
@@ -147,91 +147,15 @@
                 document.getElementById('login-screen').classList.add('hidden');
                 document.getElementById('main-app').classList.remove('hidden');
                 if(me.email === ADMIN_EMAIL) document.getElementById('admin-icon').classList.remove('hidden');
-                updateStatus("online"); loadList();
+                setDoc(doc(db, "presence", me.email), { status: "online", last: serverTimestamp() }, { merge: true });
+                loadList();
             } else {
                 document.getElementById('login-screen').classList.remove('hidden');
                 document.getElementById('main-app').classList.add('hidden');
             }
         });
 
-        const updateStatus = async (st) => {
-            if (me) await setDoc(doc(db, "presence", me.email), { status: st, lastSeen: serverTimestamp() }, { merge: true });
-        };
-
-        // --- CHAT LOGIC ---
-        window.sendMsg = async () => {
-            const inp = document.getElementById('m-input');
-            if(!inp.value || !peer) return;
-            const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
-            await addDoc(collection(db, "messages"), {
-                cid, sender: me.email, text: inp.value, type: "text",
-                time: Date.now(), read: false,
-                dt: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
-            });
-            inp.value = "";
-        };
-
-        window.sendImage = (input) => {
-            const file = input.files[0];
-            if(!file || file.size > 800000) return alert("File too big! (Max 800KB)");
-            const reader = new FileReader();
-            reader.onload = async () => {
-                const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
-                await addDoc(collection(db, "messages"), {
-                    cid, sender: me.email, img: reader.result, type: "image",
-                    time: Date.now(), read: false,
-                    dt: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
-                });
-            };
-            reader.readAsDataURL(file);
-        };
-
-        function listen() {
-            const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
-            const q = query(collection(db, "messages"), where("cid", "==", cid), orderBy("time", "asc"));
-            if(unsubMsg) unsubMsg();
-            unsubMsg = onSnapshot(q, snap => {
-                const area = document.getElementById('msg-area'); area.innerHTML = "";
-                snap.forEach(d => {
-                    const m = d.data();
-                    if(!m.read && m.sender !== me.email) updateDoc(doc(db, "messages", d.id), { read: true });
-
-                    const div = document.createElement('div');
-                    div.className = `msg ${m.sender === me.email ? 'sent' : 'received'}`;
-                    let body = m.type === "image" ? `<img src="${m.img}" style="width:100%; border-radius:5px;" onclick="window.previewImg('${m.img}')">` : `<div>${m.text}</div>`;
-                    div.innerHTML = `${body}<div class="msg-meta">${m.dt} ${m.sender === me.email ? `<i class="fas fa-check-double ${m.read ? 'blue-tick' : ''}"></i>` : ''}</div>`;
-                    area.appendChild(div);
-                });
-                area.scrollTop = area.scrollHeight;
-            });
-        }
-
-        // --- ADMIN CONTROL ---
-        window.showAdmin = async () => {
-            document.getElementById('admin-panel').classList.remove('hidden');
-            const snap = await getDocs(collection(db, "users"));
-            const list = document.getElementById('admin-user-list');
-            list.innerHTML = "<h4>Total Users</h4>";
-            snap.forEach(d => {
-                const u = d.data();
-                list.innerHTML += `<div class="admin-list-item">
-                    <span>${u.email} <br> <small>Pass: ${u.password}</small></span>
-                    <i class="fas fa-trash-alt" style="color:red; cursor:pointer;" onclick="window.adminDeleteUser('${u.email}')"></i>
-                </div>`;
-            });
-        };
-
-        window.createUser = async () => {
-            const e = document.getElementById('new-user-email').value.trim();
-            const p = document.getElementById('new-user-pass').value.trim();
-            if(!e || !p) return alert("Empty fields!");
-            await setDoc(doc(db, "users", e), { email: e, password: p, role: "user" });
-            alert("User Added!"); window.showAdmin();
-        };
-
-        window.adminDeleteUser = async (e) => { if(confirm("Delete " + e + "?")) { await deleteDoc(doc(db, "users", e)); window.showAdmin(); } };
-
-        // --- UTILS ---
+        // --- CHAT & ADMIN LOGIC ---
         function loadList() {
             onSnapshot(collection(db, "users"), snap => {
                 const list = document.getElementById('user-list'); list.innerHTML = "";
@@ -239,35 +163,88 @@
                     const u = d.data();
                     if(u.email !== me.email) {
                         const div = document.createElement('div'); div.className = "user-item";
-                        div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${u.email}&background=random"> <b>${u.email}</b>`;
-                        div.onclick = () => { 
-                            peer = {email: u.email}; 
-                            document.getElementById('chat-window').classList.add('open'); 
-                            document.getElementById('chat-name').innerText = u.email;
-                            onSnapshot(doc(db, "presence", u.email), d2 => {
-                                document.getElementById('chat-lastseen').innerText = d2.data()?.status === "online" ? "Online" : "Offline";
-                            });
-                            listen(); 
-                        };
+                        div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${u.email}"> <b>${u.email}</b>`;
+                        div.onclick = () => openChat(u.email);
                         list.appendChild(div);
                     }
                 });
             });
         }
 
-        window.previewImg = (s) => { document.getElementById('full-img').src=s; document.getElementById('preview-box').style.display='flex'; };
-        window.logout = () => { updateStatus("offline"); signOut(auth).then(()=>location.reload()); };
-        window.closeChat = () => { document.getElementById('chat-window').classList.remove('open'); if(unsubMsg) unsubMsg(); };
+        function openChat(email) {
+            peer = {email}; 
+            document.getElementById('chat-window').classList.add('open');
+            document.getElementById('chat-name').innerText = email;
+            onSnapshot(doc(db, "presence", email), d => {
+                document.getElementById('chat-lastseen').innerText = d.data()?.status === "online" ? "Online" : "Offline";
+            });
+            listen();
+        }
 
-        // --- VIDEO CALL ---
-        window.startCall = async () => {
-            const container = document.getElementById('call-root');
-            container.classList.remove('hidden');
-            const roomID = (me.email < peer.email ? me.email+peer.email : peer.email+me.email).replace(/[^a-zA-Z0-9]/g, "");
-            const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(1196176620, "a5137871a508226e73c23d027ab37107", roomID, me.email, me.email);
-            const zp = ZegoUIKitPrebuilt.create(kitToken);
-            zp.joinRoom({ container, scenario: { mode: ZegoUIKitPrebuilt.OneONoneCall }, onLeaveRoom: () => location.reload() });
+        function listen() {
+            const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
+            const q = query(collection(db, "messages"), where("cid", "==", cid), orderBy("time", "asc"));
+            onSnapshot(q, snap => {
+                const area = document.getElementById('msg-area'); area.innerHTML = "";
+                snap.forEach(d => {
+                    const m = d.data();
+                    if(!m.read && m.sender !== me.email) updateDoc(doc(db, "messages", d.id), { read: true });
+                    const div = document.createElement('div');
+                    div.className = `msg ${m.sender === me.email ? 'sent' : 'received'}`;
+                    let body = m.type === "image" ? `<img src="${m.img}" style="width:100%; border-radius:5px;">` : `<div>${m.text}</div>`;
+                    div.innerHTML = `${body}<div class="msg-meta">${m.dt} ${m.sender === me.email ? `<i class="fas fa-check-double ${m.read ? 'blue-tick' : ''}"></i>` : ''}</div>`;
+                    area.appendChild(div);
+                });
+                area.scrollTop = area.scrollHeight;
+            });
+        }
+
+        window.sendMsg = async () => {
+            const inp = document.getElementById('m-input'); if(!inp.value) return;
+            const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
+            await addDoc(collection(db, "messages"), {
+                cid, sender: me.email, text: inp.value, type: "text", time: Date.now(), read: false,
+                dt: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+            });
+            inp.value = "";
         };
+
+        window.sendImage = (input) => {
+            const file = input.files[0]; if(!file) return;
+            const reader = new FileReader();
+            reader.onload = async () => {
+                const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
+                await addDoc(collection(db, "messages"), {
+                    cid, sender: me.email, img: reader.result, type: "image", time: Date.now(), read: false,
+                    dt: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+                });
+            };
+            reader.readAsDataURL(file);
+        };
+
+        window.showAdmin = async () => {
+            document.getElementById('admin-panel').classList.remove('hidden');
+            const snap = await getDocs(collection(db, "users"));
+            const div = document.getElementById('admin-user-list'); div.innerHTML = "";
+            snap.forEach(d => {
+                div.innerHTML += `<div style="background:white; padding:10px; margin-bottom:5px; display:flex; justify-content:space-between;">
+                    <span>${d.data().email}</span>
+                    <i class="fas fa-trash" style="color:red;" onclick="window.delUser('${d.id}')"></i>
+                </div>`;
+            });
+        };
+
+        window.createUser = async () => {
+            const e = document.getElementById('new-user-email').value;
+            const p = document.getElementById('new-user-pass').value;
+            await setDoc(doc(db, "users", e), { email: e, password: p });
+            alert("User saved in Database! Ab wo login kar sakta hai.");
+            window.showAdmin();
+        };
+
+        window.delUser = async (id) => { if(confirm("Delete?")) await deleteDoc(doc(db, "users", id)); window.showAdmin(); };
+        window.logout = () => { setDoc(doc(db, "presence", me.email), { status: "offline" }, { merge: true }); signOut(auth).then(()=>location.reload()); };
+        window.closeChat = () => document.getElementById('chat-window').classList.remove('open');
     </script>
 </body>
 </html>
