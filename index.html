@@ -16,9 +16,13 @@
         #chat-window { position: fixed; inset: 0; background: var(--wa-bg); z-index: 2000; display: flex; flex-direction: column; transform: translateX(100%); transition: 0.3s; }
         #chat-window.open { transform: translateX(0); }
         .msg-area { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
-        .msg { padding: 6px 10px; border-radius: 8px; margin-bottom: 4px; max-width: 85%; font-size: 14.5px; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
+        
+        /* Message styling with Delete effect */
+        .msg { padding: 6px 10px; border-radius: 8px; margin-bottom: 4px; max-width: 85%; font-size: 14.5px; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.1); cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
+        .msg:active { opacity: 0.7; background: #e2e2e2; }
         .sent { align-self: flex-end; background: #dcf8c6; }
         .received { align-self: flex-start; background: white; }
+        
         .msg-meta { display: flex; align-items: center; justify-content: flex-end; font-size: 10px; color: #777; margin-top: 2px; }
         .blue-tick { color: var(--wa-blue); }
         .user-item { display: flex; align-items: center; padding: 12px; background: white; border-bottom: 1px solid #eee; cursor: pointer; }
@@ -67,7 +71,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, setDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = { 
             apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
@@ -81,7 +85,6 @@
         const db = getFirestore(app);
         let me = null, peer = null;
 
-        // --- PRESENCE FIX (Offline Status) ---
         const updateStatus = async (st) => {
             if (me) {
                 await setDoc(doc(db, "presence", me.email), { 
@@ -91,7 +94,6 @@
             }
         };
 
-        // Tab Change detection
         document.addEventListener('visibilitychange', () => {
             updateStatus(document.visibilityState === 'visible' ? "online" : "offline");
         });
@@ -171,13 +173,34 @@
                 const area = document.getElementById('msg-area'); area.innerHTML = "";
                 snap.forEach(d => {
                     const m = d.data();
-                    if(!m.read && m.sender !== me.email) updateDoc(doc(db, "messages", d.id), { read: true });
+                    const mid = d.id;
+                    if(!m.read && m.sender !== me.email) updateDoc(doc(db, "messages", mid), { read: true });
+                    
                     const div = document.createElement('div');
                     div.className = `msg ${m.sender === me.email ? 'sent' : 'received'}`;
+                    
+                    // --- DELETE LOGIC (Long Press) ---
+                    let pressTimer;
+                    const startPress = () => {
+                        pressTimer = setTimeout(async () => {
+                            if(confirm("Delete this message?")) {
+                                await deleteDoc(doc(db, "messages", mid));
+                            }
+                        }, 800);
+                    };
+                    const endPress = () => clearTimeout(pressTimer);
+                    
+                    div.onmousedown = startPress; div.onmouseup = endPress;
+                    div.ontouchstart = startPress; div.ontouchend = endPress;
+
                     const time = m.displayTime || "00:00";
                     const tick = m.sender === me.email ? `<i class="fas fa-check-double ${m.read ? 'blue-tick' : ''}" style="margin-left:5px;"></i>` : '';
-                    div.innerHTML = `<div>${m.text || 'Image'}</div><div class="msg-meta">${time} ${tick}</div>`;
-                    if(m.type === 'image') div.innerHTML = `<img src="${m.img}" style="width:100%;" onclick="window.preview('${m.img}')"><div class="msg-meta">${time} ${tick}</div>`;
+                    
+                    if(m.type === 'text') {
+                        div.innerHTML = `<div>${m.text}</div><div class="msg-meta">${time} ${tick}</div>`;
+                    } else {
+                        div.innerHTML = `<img src="${m.img}" style="width:100%; border-radius:5px;" onclick="window.preview('${m.img}')"><div class="msg-meta">${time} ${tick}</div>`;
+                    }
                     area.appendChild(div);
                 });
                 area.scrollTop = area.scrollHeight;
@@ -194,7 +217,7 @@
             zp.joinRoom({
                 container,
                 scenario: { mode: ZegoUIKitPrebuilt.OneONoneCall },
-                onLeaveRoom: () => location.reload()
+                onLeaveRoom: () => { container.classList.add('hidden'); location.reload(); }
             });
         };
 
