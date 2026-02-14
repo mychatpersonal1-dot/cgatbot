@@ -196,50 +196,56 @@
             });
         }
 
-        window.startCall = async (mode) => {
+       window.startCall = async (mode) => {
     const container = document.getElementById('call-root');
-    
-    // 1. Pehle Camera/Mic permission check karo
-    try {
-        await navigator.mediaDevices.getUserMedia({ audio: true, video: mode === 'video' });
-    } catch (err) {
-        alert("Please allow Camera/Mic permission to make a call!");
-        return;
-    }
-
     container.classList.remove('hidden');
-
-    // 2. Room ID ekdum simple (No special characters)
-    const roomID = (me.email < peer.email ? me.email + peer.email : peer.email + me.email)
-                    .replace(/[^a-zA-Z0-9]/g, "").substring(0, 20);
 
     const appID = 1196176620;
     const serverSecret = "a5137871a508226e73c23d027ab37107";
     
-    // 3. Kit Token generate
+    // Room ID ko clean rakha hai taaki connection fail na ho
+    const roomID = (me.email < peer.email ? me.email + peer.email : peer.email + me.email)
+                    .replace(/[^a-zA-Z0-9]/g, "");
+
+    // Token Generation
     const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
         appID, 
         serverSecret, 
         roomID, 
-        Date.now().toString(), // UserID should be string and unique
-        me.email
+        me.email, // UserID
+        me.email  // UserName
     );
 
     const zp = ZegoUIKitPrebuilt.create(kitToken);
 
+    // Zego ka official configuration
     zp.joinRoom({
         container: container,
-        scenario: { 
-            mode: mode === 'video' ? ZegoUIKitPrebuilt.OneONoneCall : ZegoUIKitPrebuilt.GroupCall 
+        turnOnMicrophoneWhenJoining: true,
+        turnOnCameraWhenJoining: mode === 'video', // Audio call mein camera off rahega
+        showMyCameraToggleButton: true,
+        showMyMicrophoneToggleButton: true,
+        showAudioVideoSettingsButton: true,
+        showScreenSharingButton: true,
+        showTextChat: true,
+        showUserList: true,
+        maxUsers: 2,
+        layout: "Auto",
+        showLayoutButton: false,
+        scenario: {
+            mode: ZegoUIKitPrebuilt.OneONoneCall, // Yahan official variable use kiya hai
+            config: {
+                role: "Host",
+            },
         },
-        showPreJoinView: false, // Seedha call join hogi, black screen nahi rukegi
         onLeaveRoom: () => {
             container.classList.add('hidden');
-            window.location.reload();
-        }
+            window.location.reload(); // Refresh to clean memory
+        },
     });
 };
     </script>
 </body>
 </html>
+
 
