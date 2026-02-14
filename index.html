@@ -104,31 +104,25 @@
         let me = null, peer = null;
         const ADMIN_EMAIL = "admin@gmail.com"; 
 
-        // --- NEW LOGIN LOGIC (FIXED) ---
         window.doLogin = async () => {
             const e = document.getElementById('l-email').value.trim();
             const p = document.getElementById('l-pass').value.trim();
             if(!e || !p) return alert("Email/Pass bhariye!");
 
             try {
-                // Pehle Database mein check karo
                 const uSnap = await getDoc(doc(db, "users", e));
-                
                 if(uSnap.exists()) {
                     const userData = uSnap.data();
                     if(userData.password === p) {
-                        // Agar DB mein hai, toh Firebase Auth mein login koshish karo
                         try {
                             await signInWithEmailAndPassword(auth, e, p);
                         } catch (err) {
-                            // Agar Auth mein nahi hai (Naya User), toh Auto-Register karo
-                            if(err.code === 'auth/user-not-found') {
+                            if(err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
                                 await createUserWithEmailAndPassword(auth, e, p);
                             } else { throw err; }
                         }
                     } else { alert("Galat Password!"); }
                 } else if(e === ADMIN_EMAIL) {
-                    // Admin ke liye direct creation agar pehli baar hai
                     try {
                         await signInWithEmailAndPassword(auth, e, p);
                     } catch {
@@ -155,7 +149,6 @@
             }
         });
 
-        // --- CHAT & ADMIN LOGIC ---
         function loadList() {
             onSnapshot(collection(db, "users"), snap => {
                 const list = document.getElementById('user-list'); list.innerHTML = "";
@@ -227,19 +220,43 @@
             const snap = await getDocs(collection(db, "users"));
             const div = document.getElementById('admin-user-list'); div.innerHTML = "";
             snap.forEach(d => {
-                div.innerHTML += `<div style="background:white; padding:10px; margin-bottom:5px; display:flex; justify-content:space-between;">
-                    <span>${d.data().email}</span>
-                    <i class="fas fa-trash" style="color:red;" onclick="window.delUser('${d.id}')"></i>
+                const u = d.data();
+                div.innerHTML += `<div style="background:white; padding:10px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center; border-radius:5px;">
+                    <span>${u.email} <br> <small>Pass: ${u.password}</small></span>
+                    <div>
+                        <i class="fas fa-key" style="color:blue; margin-right:15px; cursor:pointer;" onclick="window.changePass('${u.email}')"></i>
+                        <i class="fas fa-trash" style="color:red; cursor:pointer;" onclick="window.delUser('${u.email}')"></i>
+                    </div>
                 </div>`;
             });
         };
 
         window.createUser = async () => {
-            const e = document.getElementById('new-user-email').value;
-            const p = document.getElementById('new-user-pass').value;
-            await setDoc(doc(db, "users", e), { email: e, password: p });
-            alert("User saved in Database! Ab wo login kar sakta hai.");
-            window.showAdmin();
+            const e = document.getElementById('new-user-email').value.trim();
+            const p = document.getElementById('new-user-pass').value.trim();
+            if(!e || p.length < 6) return alert("Email daalein aur password kam se kam 6 char ka!");
+            
+            try {
+                // 1. Database mein save
+                await setDoc(doc(db, "users", e), { email: e, password: p });
+                // 2. Auth mein auto creation (Taki manual na karna pade)
+                try {
+                    await createUserWithEmailAndPassword(auth, e, p);
+                } catch (ae) { 
+                    if(ae.code !== 'auth/email-already-in-use') throw ae;
+                }
+                alert("User Created Automatically!");
+                window.showAdmin();
+            } catch (err) { alert(err.message); }
+        };
+
+        window.changePass = async (email) => {
+            const n = prompt("Naya Password daalo (Min 6 char):");
+            if(n && n.length >= 6) {
+                await updateDoc(doc(db, "users", email), { password: n });
+                alert("Password updated in Database!");
+                window.showAdmin();
+            } else { alert("Password chhota hai!"); }
         };
 
         window.delUser = async (id) => { if(confirm("Delete?")) await deleteDoc(doc(db, "users", id)); window.showAdmin(); };
