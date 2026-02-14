@@ -3,66 +3,108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WhatsApp Pro - Fixed</title>
+    <title>WhatsApp Pro Max</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
+    <script src="https://resource.zegocloud.com/prebuilt/zego-uikit-prebuilt.js"></script>
     <style>
-        :root { --wa-bg: #efe7de; --wa-teal: #128C7E; --wa-green: #25D366; --bubble-sent: #dcf8c6; --bubble-rcv: #ffffff; }
+        :root { --wa-teal: #128C7E; --wa-green: #25D366; --wa-bg: #efe7de; --bubble-sent: #dcf8c6; }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
-        body { background: #dadbd3; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        body { background: #dadbd3; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         .hidden { display: none !important; }
-        header { background: var(--wa-teal); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
-        #login-screen { height: 100vh; background: #075E54; display: flex; align-items: center; justify-content: center; position: fixed; width: 100%; z-index: 3000; }
-        .login-card { background: white; padding: 30px; border-radius: 10px; width: 90%; max-width: 350px; text-align: center; }
-        .user-item { display: flex; align-items: center; padding: 15px; background: white; border-bottom: 1px solid #eee; cursor: pointer; }
-        .user-item img { width: 45px; height: 45px; border-radius: 50%; margin-right: 15px; }
-        #chat-window { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--wa-bg); z-index: 1000; display: flex; flex-direction: column; transform: translateX(100%); transition: 0.3s ease; }
+        
+        /* UI Components */
+        header { background: var(--wa-teal); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; z-index: 10; }
+        .tabs { display: flex; background: var(--wa-teal); color: #b3d4d0; font-weight: bold; }
+        .tab { flex: 1; text-align: center; padding: 12px; cursor: pointer; border-bottom: 3px solid transparent; }
+        .active-tab { color: white; border-bottom: 3px solid white; }
+
+        /* User List */
+        .list-container { flex: 1; overflow-y: auto; background: white; }
+        .item { display: flex; align-items: center; padding: 12px 15px; border-bottom: 1px solid #eee; cursor: pointer; }
+        .item img { width: 50px; height: 50px; border-radius: 50%; margin-right: 15px; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; margin-left: auto; }
+
+        /* Chat Window */
+        #chat-window { position: fixed; inset: 0; background: var(--wa-bg); z-index: 1000; display: flex; flex-direction: column; transform: translateX(100%); transition: 0.3s; }
         #chat-window.open { transform: translateX(0); }
-        .msg-container { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
-        .msg { max-width: 75%; padding: 8px 12px; border-radius: 8px; margin-bottom: 5px; font-size: 15px; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
-        .sent { align-self: flex-end; background: var(--bubble-sent); border-top-right-radius: 0; }
-        .received { align-self: flex-start; background: var(--bubble-rcv); border-top-left-radius: 0; }
-        .chat-footer { background: #f0f0f0; padding: 10px; display: flex; align-items: center; }
-        .chat-footer input { flex: 1; border: none; padding: 10px 15px; border-radius: 20px; outline: none; margin: 0 10px; }
-        #call-root { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000; background: black; }
+        .chat-header { background: var(--wa-teal); color: white; padding: 10px; display: flex; align-items: center; }
+        .msg-area { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
+        
+        /* Messages */
+        .msg { max-width: 80%; padding: 8px; border-radius: 8px; margin-bottom: 8px; position: relative; font-size: 15px; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
+        .sent { align-self: flex-end; background: var(--bubble-sent); }
+        .received { align-self: flex-start; background: white; }
+        .msg-img { width: 100%; max-width: 250px; border-radius: 5px; cursor: pointer; }
+        .del-btn { color: red; font-size: 10px; cursor: pointer; display: block; text-align: right; margin-top: 5px; }
+
+        /* Admin Styles */
+        .admin-card { margin: 10px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa; }
+        .btn-sm { padding: 5px 10px; border-radius: 4px; border: none; color: white; cursor: pointer; margin-right: 5px; font-size: 12px; }
+
+        #call-root { position: fixed; inset: 0; z-index: 2000; background: black; }
+        #image-preview { position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
 
-    <div id="login-screen">
-        <div class="login-card">
-            <h2 style="color: #075E54; margin-bottom: 15px;">WhatsApp Login</h2>
-            <input type="email" id="l-email" placeholder="Email" style="width:100%; padding:10px; margin:5px 0;">
-            <input type="password" id="l-pass" placeholder="Password" style="width:100%; padding:10px; margin:5px 0;">
-            <button onclick="window.doLogin()" style="width:100%; background:var(--wa-green); color:white; border:none; padding:12px; margin-top:10px; border-radius:5px; font-weight:bold;">LOGIN</button>
+    <div id="login-screen" style="height:100vh; background: #075E54; display:flex; align-items:center; justify-content:center; position:fixed; width:100%; z-index:4000;">
+        <div style="background:white; padding:30px; border-radius:10px; width:90%; max-width:350px; text-align:center;">
+            <h2 style="color:var(--wa-teal)">WhatsApp Pro</h2>
+            <input type="email" id="l-email" placeholder="Email" style="width:100%; padding:12px; margin:10px 0; border:1px solid #ddd;">
+            <input type="password" id="l-pass" placeholder="Password" style="width:100%; padding:12px; margin:10px 0; border:1px solid #ddd;">
+            <button onclick="window.doLogin()" style="width:100%; background:var(--wa-green); color:white; padding:12px; border:none; border-radius:5px; font-weight:bold;">LOGIN</button>
         </div>
     </div>
 
-    <div id="main-app" class="hidden">
-        <header><b>WhatsApp Pro</b><i class="fas fa-sign-out-alt" onclick="window.logout()"></i></header>
-        <div id="user-list-container"></div>
+    <div id="main-app" class="hidden" style="height:100vh; display:flex; flex-direction:column;">
+        <header>
+            <b>WhatsApp Pro</b>
+            <i class="fas fa-sign-out-alt" onclick="window.logout()"></i>
+        </header>
+        <div class="tabs">
+            <div id="tab-btn-chats" class="tab active-tab" onclick="switchTab('chats')">CHATS</div>
+            <div id="tab-btn-admin" class="tab hidden" onclick="switchTab('admin')">ADMIN</div>
+        </div>
+
+        <div id="view-chats" class="list-container"></div>
+        
+        <div id="view-admin" class="list-container hidden">
+            <div class="admin-card">
+                <h4>Add New User</h4>
+                <input type="email" id="adm-email" placeholder="New User Email" style="width:100%; padding:8px; margin:5px 0;">
+                <input type="text" id="adm-pass" placeholder="Password" style="width:100%; padding:8px; margin:5px 0;">
+                <button onclick="window.adminAddUser()" style="background:var(--wa-teal); color:white; border:none; padding:8px 15px; border-radius:4px;">Create User</button>
+            </div>
+            <div id="admin-user-list"></div>
+        </div>
     </div>
 
     <div id="chat-window">
-        <div style="background:var(--wa-teal); color:white; padding:10px; display:flex; align-items:center;">
+        <div class="chat-header">
             <i class="fas fa-arrow-left" onclick="window.closeChat()" style="padding:10px;"></i>
-            <img id="chat-avatar" src="" style="width:35px; height:35px; border-radius:50%; margin:0 10px;">
-            <div style="flex:1;"><b id="chat-name">User</b></div>
-            <i class="fas fa-video" onclick="window.startCall()" style="margin-right:20px; cursor:pointer;"></i>
+            <img id="chat-avatar" src="" style="width:40px; height:40px; border-radius:50%; margin:0 10px;">
+            <div style="flex:1"><b id="chat-name">Name</b></div>
+            <i class="fas fa-video" onclick="window.startCall('video')" style="margin-right:20px; font-size:20px; cursor:pointer;"></i>
+            <i class="fas fa-phone" onclick="window.startCall('audio')" style="font-size:18px; cursor:pointer;"></i>
         </div>
-        <div class="msg-container" id="msg-container"></div>
+        <div id="msg-area" class="msg-area"></div>
         <div class="chat-footer">
+            <label for="img-input"><i class="fas fa-camera" style="padding:10px; color:#666; cursor:pointer;"></i></label>
+            <input type="file" id="img-input" class="hidden" accept="image/*" onchange="window.sendImage(this)">
             <input type="text" id="m-input" placeholder="Type a message...">
-            <button onclick="window.sendMsg()" style="border:none; background:none; color:var(--wa-teal);"><i class="fas fa-paper-plane" style="font-size:22px;"></i></button>
+            <i class="fas fa-paper-plane" onclick="window.sendMsg()" style="color:var(--wa-teal); font-size:22px; padding:10px; cursor:pointer;"></i>
         </div>
     </div>
 
     <div id="call-root" class="hidden"></div>
+    <div id="image-preview" class="hidden" onclick="this.classList.add('hidden')">
+        <img id="preview-img" src="" style="max-width:90%; max-height:90%;">
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, getDocs, doc, updateDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = { 
             apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
@@ -76,6 +118,7 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        const ADMIN_EMAIL = "bandhubhai148@gmail.com";
 
         let me = null, peer = null, unsub = null;
 
@@ -87,11 +130,23 @@
 
         window.logout = () => signOut(auth);
 
-        onAuthStateChanged(auth, u => {
+        onAuthStateChanged(auth, async (u) => {
             if(u) {
+                // Check if user is enabled in DB
+                const q = query(collection(db, "users"), where("email", "==", u.email));
+                const snap = await getDocs(q);
+                let userData = snap.docs[0]?.data();
+
+                if(userData && userData.status === 'disabled' && u.email !== ADMIN_EMAIL) {
+                    alert("Your account is disabled by Admin.");
+                    signOut(auth);
+                    return;
+                }
+
                 me = u;
                 document.getElementById('login-screen').classList.add('hidden');
                 document.getElementById('main-app').classList.remove('hidden');
+                if(u.email === ADMIN_EMAIL) document.getElementById('tab-btn-admin').classList.remove('hidden');
                 loadUsers();
             } else {
                 document.getElementById('login-screen').classList.remove('hidden');
@@ -99,22 +154,61 @@
             }
         });
 
+        window.switchTab = (t) => {
+            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active-tab'));
+            document.querySelectorAll('.list-container').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`tab-btn-${t}`).classList.add('active-tab');
+            document.getElementById(`view-${t}`).classList.remove('hidden');
+            if(t === 'admin') loadAdminList();
+        };
+
         async function loadUsers() {
-            const snap = await getDocs(collection(db, "users"));
-            const list = document.getElementById('user-list-container');
-            list.innerHTML = "";
-            snap.forEach(d => {
-                const u = d.data();
-                if(u.email !== me.email) {
-                    const div = document.createElement('div');
-                    div.className = "user-item";
-                    div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${u.email}"><b>${u.email}</b>`;
-                    div.onclick = () => openChat(u.uid || d.id, u.email);
-                    list.appendChild(div);
-                }
+            onSnapshot(collection(db, "users"), (snap) => {
+                const list = document.getElementById('view-chats');
+                list.innerHTML = "";
+                snap.forEach(d => {
+                    const u = d.data();
+                    if(u.email !== me.email && u.status !== 'disabled') {
+                        const div = document.createElement('div');
+                        div.className = "item";
+                        div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${u.email}"><div><b>${u.email}</b><br><small>Available</small></div>`;
+                        div.onclick = () => openChat(u.uid || d.id, u.email);
+                        list.appendChild(div);
+                    }
+                });
             });
         }
 
+        // ADMIN FUNCTIONS
+        window.adminAddUser = async () => {
+            const email = document.getElementById('adm-email').value;
+            const password = document.getElementById('adm-pass').value;
+            await addDoc(collection(db, "users"), { email, password, status: 'active', uid: "u"+Date.now() });
+            alert("User added to DB. (Note: Also add in Firebase Auth manually)");
+            loadAdminList();
+        };
+
+        async function loadAdminList() {
+            const snap = await getDocs(collection(db, "users"));
+            const list = document.getElementById('admin-user-list');
+            list.innerHTML = "";
+            snap.forEach(d => {
+                const u = d.data();
+                const div = document.createElement('div');
+                div.className = "admin-card";
+                div.innerHTML = `
+                    <b>${u.email}</b> [${u.status}]<br><br>
+                    <button class="btn-sm" style="background:orange" onclick="window.updateStatus('${d.id}', '${u.status === 'active' ? 'disabled' : 'active'}')">Toggle Status</button>
+                    <button class="btn-sm" style="background:red" onclick="window.deleteUser('${d.id}')">Delete</button>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        window.updateStatus = async (id, s) => { await updateDoc(doc(db, "users", id), { status: s }); loadAdminList(); };
+        window.deleteUser = async (id) => { if(confirm("Delete user?")) { await deleteDoc(doc(db, "users", id)); loadAdminList(); } };
+
+        // CHAT FUNCTIONS
         function openChat(id, email) {
             peer = { id, email };
             document.getElementById('chat-window').classList.add('open');
@@ -123,58 +217,64 @@
             listen();
         }
 
-        window.closeChat = () => {
-            document.getElementById('chat-window').classList.remove('open');
-            if(unsub) unsub();
-        };
+        window.closeChat = () => { document.getElementById('chat-window').classList.remove('open'); if(unsub) unsub(); };
 
         window.sendMsg = async () => {
             const text = document.getElementById('m-input').value;
             if(!text) return;
             const cid = me.uid < peer.id ? me.uid + peer.id : peer.id + me.uid;
-            await addDoc(collection(db, "messages"), { cid, sender: me.uid, text, time: Date.now() });
+            await addDoc(collection(db, "messages"), { cid, sender: me.uid, text, type: 'text', time: Date.now() });
             document.getElementById('m-input').value = "";
+        };
+
+        window.sendImage = (input) => {
+            const file = input.files[0];
+            const reader = new FileReader();
+            reader.onload = async () => {
+                const cid = me.uid < peer.id ? me.uid + peer.id : peer.id + me.uid;
+                await addDoc(collection(db, "messages"), { cid, sender: me.uid, img: reader.result, type: 'image', time: Date.now() });
+            };
+            reader.readAsDataURL(file);
+        };
+
+        window.deleteMsg = async (id) => { if(confirm("Delete message?")) await deleteDoc(doc(db, "messages", id)); };
+
+        window.viewImg = (src) => {
+            document.getElementById('preview-img').src = src;
+            document.getElementById('image-preview').classList.remove('hidden');
         };
 
         function listen() {
             const cid = me.uid < peer.id ? me.uid + peer.id : peer.id + me.uid;
             const q = query(collection(db, "messages"), where("cid", "==", cid), orderBy("time", "asc"));
             unsub = onSnapshot(q, snap => {
-                const cont = document.getElementById('msg-container');
+                const cont = document.getElementById('msg-area');
                 cont.innerHTML = "";
                 snap.forEach(d => {
                     const m = d.data();
                     const div = document.createElement('div');
                     div.className = `msg ${m.sender === me.uid ? 'sent' : 'received'}`;
-                    div.innerText = m.text;
+                    if(m.type === 'text') div.innerText = m.text;
+                    else div.innerHTML = `<img src="${m.img}" class="msg-img" onclick="window.viewImg('${m.img}')">`;
+                    
+                    div.innerHTML += `<span class="del-btn" onclick="window.deleteMsg('${d.id}')">× Delete</span>`;
                     cont.appendChild(div);
                 });
                 cont.scrollTop = cont.scrollHeight;
-            }, (error) => {
-                console.error("Firestore Error: ", error);
-                if(error.code === 'failed-precondition') alert("Index error! Click the link in console to fix.");
             });
         }
 
-        window.startCall = () => {
-            if (typeof ZegoUIKitPrebuilt === 'undefined') {
-                alert("Zego Library is loading... please wait 5 seconds.");
-                return;
-            }
-            const appID = 1196176620;
-            const serverSecret = "a5137871a508226e73c23d027ab37107";
+        // CALL LOGIC
+        window.startCall = (mode) => {
+            if (typeof ZegoUIKitPrebuilt === 'undefined') return alert("Loading Zego... Wait 5s");
             const roomID = me.uid < peer.id ? me.uid + peer.id : peer.id + me.uid;
-            
-            const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, roomID, me.uid, me.email);
+            const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(1196176620, "a5137871a508226e73c23d027ab37107", roomID, me.uid, me.email);
             const zp = ZegoUIKitPrebuilt.create(kitToken);
-
             document.getElementById('call-root').classList.remove('hidden');
             zp.joinRoom({
                 container: document.querySelector("#call-root"),
-                scenario: { mode: ZegoUIKitPrebuilt.OneONoneCall },
-                onLeaveRoom: () => {
-                    document.getElementById('call-root').classList.add('hidden');
-                }
+                scenario: { mode: mode === 'video' ? ZegoUIKitPrebuilt.OneONoneCall : ZegoUIKitPrebuilt.GroupCall },
+                onLeaveRoom: () => { document.getElementById('call-root').classList.add('hidden'); window.location.reload(); }
             });
         };
     </script>
