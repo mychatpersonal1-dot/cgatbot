@@ -3,81 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WhatsApp Pro - Final Fix</title>
+    <title>WhatsApp Ultra Pro</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://resource.zegocloud.com/prebuilt/zego-uikit-prebuilt.js"></script>
     <style>
-        :root { --wa-teal: #075E54; --wa-green: #25D366; --wa-bg: #efe7de; }
+        :root { --wa-teal: #075E54; --wa-green: #25D366; --wa-blue: #34B7F1; --wa-bg: #efe7de; }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
-        body { background: #dadbd3; height: 100vh; overflow: hidden; }
+        body { background: #dadbd3; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         .hidden { display: none !important; }
         
-        /* Header & List */
-        header { background: var(--wa-teal); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
-        .user-item { display: flex; align-items: center; padding: 12px 15px; background: white; border-bottom: 1px solid #eee; cursor: pointer; position: relative; }
-        .user-item img { width: 50px; height: 50px; border-radius: 50%; margin-right: 15px; }
+        header { background: var(--wa-teal); color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; }
+        .online-status { font-size: 11px; color: #cfd8dc; display: block; }
         
-        /* UNREAD BADGE */
-        .unread-badge { background: var(--wa-green); color: white; border-radius: 50%; min-width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; position: absolute; right: 20px; top: 35%; }
-
-        /* Chat Window */
+        /* Chat Design */
         #chat-window { position: fixed; inset: 0; background: var(--wa-bg); z-index: 2000; display: flex; flex-direction: column; transform: translateX(100%); transition: 0.3s; }
         #chat-window.open { transform: translateX(0); }
-        .msg-area { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
+        .msg-area { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
         
-        /* Message Style */
-        .msg { padding: 8px 12px; border-radius: 8px; margin-bottom: 5px; max-width: 75%; font-size: 15px; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
+        .msg { padding: 6px 10px; border-radius: 8px; margin-bottom: 4px; max-width: 80%; font-size: 15px; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
         .sent { align-self: flex-end; background: #dcf8c6; }
         .received { align-self: flex-start; background: white; }
-        .msg img { max-width: 200px; border-radius: 5px; cursor: pointer; display: block; }
         
-        /* Call Overlay */
+        /* TICK SYSTEM */
+        .status-row { display: flex; align-items: center; justify-content: flex-end; font-size: 11px; margin-top: 2px; color: #888; }
+        .blue-tick { color: var(--wa-blue) !important; }
+        
+        /* Unread Badge */
+        .badge { background: var(--wa-green); color: white; border-radius: 50%; padding: 2px 6px; font-size: 11px; margin-left: auto; }
+        
+        .user-item { display: flex; align-items: center; padding: 12px; background: white; border-bottom: 1px solid #eee; cursor: pointer; }
+        .user-item img { width: 45px; height: 45px; border-radius: 50%; margin-right: 12px; }
+
         #call-root { position: fixed; inset: 0; z-index: 5000; background: black; }
-        
-        /* Image Preview Overlay */
-        #preview-box { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 6000; display: none; align-items: center; justify-content: center; flex-direction: column; }
-        #preview-box img { max-width: 95%; max-height: 85%; object-fit: contain; }
+        #preview-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9000; display: none; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
 
-    <div id="preview-box" onclick="this.style.display='none'"><img id="preview-img"><p style="color:white; margin-top:15px;">Close</p></div>
+    <div id="preview-modal" onclick="this.style.display='none'"><img id="full-img" style="max-width:95%; max-height:90%;"></div>
     <div id="call-root" class="hidden"></div>
 
-    <div id="login-screen" style="position:fixed; inset:0; background:var(--wa-teal); display:flex; align-items:center; justify-content:center; z-index:7000;">
+    <div id="login-screen" style="position:fixed; inset:0; background:var(--wa-teal); z-index:10000; display:flex; align-items:center; justify-content:center;">
         <div style="background:white; padding:30px; border-radius:10px; width:90%; max-width:350px;">
-            <h2 style="text-align:center; color:var(--wa-teal)">WhatsApp Login</h2>
-            <input type="email" id="l-email" placeholder="Email" style="width:100%; padding:10px; margin:10px 0; border:1px solid #ddd;">
-            <input type="password" id="l-pass" placeholder="Password" style="width:100%; padding:10px; margin:10px 0; border:1px solid #ddd;">
-            <button onclick="window.doLogin()" style="width:100%; background:var(--wa-green); color:white; padding:12px; border:none; border-radius:5px; font-weight:bold;">LOGIN</button>
+            <h2 style="text-align:center; color:var(--wa-teal)">WhatsApp Pro</h2>
+            <input type="email" id="l-email" placeholder="Email" style="width:100%; padding:10px; margin:10px 0;">
+            <input type="password" id="l-pass" placeholder="Password" style="width:100%; padding:10px; margin:10px 0;">
+            <button onclick="window.doLogin()" style="width:100%; padding:12px; background:var(--wa-green); color:white; border:none; border-radius:5px;">ENTER CHAT</button>
         </div>
     </div>
 
-    <div id="main-app" class="hidden">
-        <header><b>WhatsApp Pro</b><i class="fas fa-sign-out-alt" onclick="window.logout()"></i></header>
-        <div id="user-list"></div>
+    <div id="main-app" class="hidden" style="height:100vh; display:flex; flex-direction:column;">
+        <header><b>WhatsApp</b> <i class="fas fa-sign-out-alt" onclick="window.logout()"></i></header>
+        <div id="user-list" style="flex:1; overflow-y:auto; background:white;"></div>
     </div>
 
     <div id="chat-window">
         <div style="background:var(--wa-teal); color:white; padding:10px; display:flex; align-items:center;">
             <i class="fas fa-arrow-left" onclick="window.closeChat()"></i>
-            <b id="chat-name" style="flex:1; margin-left:15px;">User</b>
-            <i class="fas fa-video" id="v-btn" onclick="window.startCall('video')" style="margin-right:20px; opacity:0.5;"></i>
-            <i class="fas fa-phone" id="a-btn" onclick="window.startCall('audio')" style="opacity:0.5;"></i>
+            <div style="flex:1; margin-left:15px;">
+                <b id="chat-name">User</b>
+                <span id="chat-online" class="online-status">Offline</span>
+            </div>
+            <i class="fas fa-video" onclick="window.startCall('video')" style="margin-right:20px;"></i>
+            <i class="fas fa-phone" onclick="window.startCall('audio')"></i>
         </div>
         <div id="msg-area" class="msg-area"></div>
         <div style="padding:10px; background:#f0f0f0; display:flex; align-items:center;">
-            <label for="img-in"><i class="fas fa-camera" style="padding:10px;"></i></label>
+            <label for="img-in"><i class="fas fa-camera" style="padding:10px; color:#555;"></i></label>
             <input type="file" id="img-in" class="hidden" accept="image/*" onchange="window.sendImage(this)">
             <input type="text" id="m-input" placeholder="Type a message..." style="flex:1; padding:10px; border-radius:20px; border:none; margin:0 10px;">
-            <button onclick="window.sendMsg()" style="border:none; background:none; color:var(--wa-teal); font-size:20px;"><i class="fas fa-paper-plane"></i></button>
+            <i class="fas fa-paper-plane" onclick="window.sendMsg()" style="color:var(--wa-teal); font-size:20px; cursor:pointer;"></i>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = { 
             apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
@@ -91,23 +93,28 @@
         const db = getFirestore(app);
         let me = null, peer = null, unsub = null;
 
-        // SDK Readiness Check
-        setInterval(() => {
-            if(window.ZegoUIKitPrebuilt) {
-                document.getElementById('v-btn').style.opacity = "1";
-                document.getElementById('a-btn').style.opacity = "1";
-            }
-        }, 1000);
+        // --- ONLINE STATUS LOGIC ---
+        function setStatus(st) {
+            if(me) setDoc(doc(db, "presence", me.email), { status: st, time: serverTimestamp() }, { merge: true });
+        }
 
         window.doLogin = async () => {
             const e = document.getElementById('l-email').value;
             const p = document.getElementById('l-pass').value;
-            try { await signInWithEmailAndPassword(auth, e, p); } catch { alert("Login Error"); }
+            try { await signInWithEmailAndPassword(auth, e, p); } catch { alert("Error!"); }
         };
 
         onAuthStateChanged(auth, u => {
-            if(u) { me = u; document.getElementById('login-screen').classList.add('hidden'); document.getElementById('main-app').classList.remove('hidden'); loadList(); }
+            if(u) {
+                me = u;
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
+                setStatus("online");
+                loadList();
+            }
         });
+
+        window.logout = () => { setStatus("offline"); signOut(auth); window.location.reload(); };
 
         function loadList() {
             onSnapshot(collection(db, "users"), snap => {
@@ -116,25 +123,22 @@
                     const u = d.data();
                     if(u.email !== me.email) {
                         const cid = me.email < u.email ? me.email + "_" + u.email : u.email + "_" + me.email;
-                        const div = document.createElement('div');
-                        div.className = "user-item";
-                        div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${u.email}"> <b>${u.email}</b> <span id="badge-${cid}" class="unread-badge hidden">0</span>`;
+                        const div = document.createElement('div'); div.className = "user-item";
+                        div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${u.email}"> <b>${u.email}</b> <span id="badge-${cid}" class="badge hidden"></span>`;
                         div.onclick = () => openChat(u.email);
                         list.appendChild(div);
-                        getUnreadCount(cid);
+                        checkUnread(cid);
                     }
                 });
             });
         }
 
-        async function getUnreadCount(cid) {
+        function checkUnread(cid) {
             const q = query(collection(db, "messages"), where("cid", "==", cid), where("read", "==", false));
             onSnapshot(q, s => {
-                let count = 0;
-                s.forEach(m => { if(m.data().sender !== me.email) count++; });
+                let count = 0; s.forEach(m => { if(m.data().sender !== me.email) count++; });
                 const b = document.getElementById(`badge-${cid}`);
-                if(count > 0) { b.innerText = count; b.classList.remove('hidden'); }
-                else { b.classList.add('hidden'); }
+                if(count > 0) { b.innerText = count; b.classList.remove('hidden'); } else b.classList.add('hidden');
             });
         }
 
@@ -142,6 +146,9 @@
             peer = { email };
             document.getElementById('chat-window').classList.add('open');
             document.getElementById('chat-name').innerText = email;
+            onSnapshot(doc(db, "presence", email), d => {
+                document.getElementById('chat-online').innerText = d.data()?.status === "online" ? "Online" : "Offline";
+            });
             listen();
         }
 
@@ -170,23 +177,32 @@
                 snap.forEach(d => {
                     const m = d.data();
                     if(!m.read && m.sender !== me.email) updateDoc(doc(db, "messages", d.id), { read: true });
+                    
                     const div = document.createElement('div');
                     div.className = `msg ${m.sender === me.email ? 'sent' : 'received'}`;
-                    if(m.type === "text") div.innerText = m.text;
-                    else div.innerHTML = `<img src="${m.img}" onclick="window.showFull('${m.img}')">`;
+                    
+                    let tickIcon = '<i class="fas fa-check"></i>'; // Default single tick
+                    if(m.read) tickIcon = '<i class="fas fa-check-double blue-tick"></i>';
+                    else tickIcon = '<i class="fas fa-check-double"></i>';
+
+                    if(m.type === "text") div.innerHTML = `<div>${m.text}</div>`;
+                    else div.innerHTML = `<img src="${m.img}" style="width:100%; border-radius:5px;" onclick="window.preview('${m.img}')">`;
+                    
+                    if(m.sender === me.email) {
+                        div.innerHTML += `<div class="status-row">${tickIcon}</div>`;
+                    }
                     area.appendChild(div);
                 });
                 area.scrollTop = area.scrollHeight;
             });
         }
 
-        window.showFull = (url) => { document.getElementById('preview-img').src = url; document.getElementById('preview-box').style.display='flex'; };
-        window.closeChat = () => { document.getElementById('chat-window').classList.remove('open'); if(unsub) unsub(); };
-        window.logout = () => signOut(auth);
+        window.preview = (url) => { document.getElementById('full-img').src = url; document.getElementById('preview-modal').style.display='flex'; };
+        window.closeChat = () => document.getElementById('chat-window').classList.remove('open');
 
-        // CALL FIX
+        // CALL LOGIC
         window.startCall = async (mode) => {
-            if(!window.ZegoUIKitPrebuilt) return alert("Wait! SDK loading...");
+            if(!window.ZegoUIKitPrebuilt) return alert("SDK loading, please wait!");
             const container = document.getElementById('call-root');
             container.classList.remove('hidden');
             const roomID = (me.email < peer.email ? me.email + peer.email : peer.email + me.email).replace(/[^a-zA-Z0-9]/g, "");
@@ -197,9 +213,11 @@
                 showPreJoinView: false,
                 scenario: { mode: ZegoUIKitPrebuilt.OneONoneCall },
                 turnOnCameraWhenJoining: mode === 'video',
-                onLeaveRoom: () => { container.classList.add('hidden'); window.location.reload(); }
+                onLeaveRoom: () => window.location.reload()
             });
         };
+        
+        window.addEventListener('beforeunload', () => setStatus("offline"));
     </script>
 </body>
 </html>
