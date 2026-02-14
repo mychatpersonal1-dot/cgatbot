@@ -196,18 +196,50 @@
             });
         }
 
-        window.startCall = (mode) => {
-            const container = document.getElementById('call-root');
-            container.classList.remove('hidden');
-            const roomID = btoa(me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email).substring(0,10);
-            const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(1196176620, "a5137871a508226e73c23d027ab37107", roomID, me.email, me.email);
-            const zp = ZegoUIKitPrebuilt.create(kitToken);
-            zp.joinRoom({
-                container: container,
-                scenario: { mode: mode === 'video' ? ZegoUIKitPrebuilt.OneONoneCall : ZegoUIKitPrebuilt.GroupCall },
-                onLeaveRoom: () => { container.classList.add('hidden'); window.location.reload(); }
-            });
-        };
+        window.startCall = async (mode) => {
+    const container = document.getElementById('call-root');
+    
+    // 1. Pehle Camera/Mic permission check karo
+    try {
+        await navigator.mediaDevices.getUserMedia({ audio: true, video: mode === 'video' });
+    } catch (err) {
+        alert("Please allow Camera/Mic permission to make a call!");
+        return;
+    }
+
+    container.classList.remove('hidden');
+
+    // 2. Room ID ekdum simple (No special characters)
+    const roomID = (me.email < peer.email ? me.email + peer.email : peer.email + me.email)
+                    .replace(/[^a-zA-Z0-9]/g, "").substring(0, 20);
+
+    const appID = 1196176620;
+    const serverSecret = "a5137871a508226e73c23d027ab37107";
+    
+    // 3. Kit Token generate
+    const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
+        appID, 
+        serverSecret, 
+        roomID, 
+        Date.now().toString(), // UserID should be string and unique
+        me.email
+    );
+
+    const zp = ZegoUIKitPrebuilt.create(kitToken);
+
+    zp.joinRoom({
+        container: container,
+        scenario: { 
+            mode: mode === 'video' ? ZegoUIKitPrebuilt.OneONoneCall : ZegoUIKitPrebuilt.GroupCall 
+        },
+        showPreJoinView: false, // Seedha call join hogi, black screen nahi rukegi
+        onLeaveRoom: () => {
+            container.classList.add('hidden');
+            window.location.reload();
+        }
+    });
+};
     </script>
 </body>
 </html>
+
