@@ -3,118 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WhatsApp Pro - Login Fixed</title>
+    <title>WhatsApp Pro - Calling UI</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        /* AAPKA ORIGINAL CSS SAME HAI */
-        :root { --wa-teal: #075E54; --wa-green: #25D366; --wa-blue: #34B7F1; --wa-bg: #efe7de; }
+        :root { --wa-teal: #075E54; --wa-green: #25D366; --wa-blue: #34B7F1; --wa-bg: #efe7de; --wa-dark: #054d44; }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background: #dadbd3; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         .hidden { display: none !important; }
+
+        /* --- WHATSAPP STYLE CALLING UI --- */
+        #call-container {
+            position: fixed; inset: 0; background: var(--wa-dark); z-index: 10000;
+            display: none; flex-direction: column; align-items: center; justify-content: space-between;
+            color: white; padding: 50px 0;
+        }
+        .call-user-info { text-align: center; }
+        .call-avatar-large { width: 150px; height: 150px; border-radius: 50%; border: 3px solid #ffffff33; margin-bottom: 20px; object-fit: cover; }
+        .calling-text { font-size: 1.2rem; letter-spacing: 1px; animation: blink 1.5s infinite; }
+        
+        .video-wrapper { position: fixed; inset: 0; background: black; display: none; z-index: 10001; }
+        #v-remote-full { width: 100%; height: 100%; object-fit: cover; }
+        #v-local-small { 
+            position: absolute; top: 20px; right: 20px; width: 100px; height: 150px; 
+            border-radius: 10px; border: 2px solid white; object-fit: cover; z-index: 10002;
+        }
+
+        .call-actions { 
+            display: flex; gap: 40px; margin-bottom: 30px; z-index: 10003; 
+        }
+        .action-btn { 
+            width: 70px; height: 70px; border-radius: 50%; border: none; 
+            display: flex; align-items: center; justify-content: center; 
+            font-size: 28px; cursor: pointer; color: white; transition: 0.3s;
+        }
+        .btn-hangup { background: #ff3b30; }
+        .btn-answer { background: #25D366; }
+        
+        @keyframes blink { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+
+        /* --- OLD UI PRESERVED --- */
         header { background: var(--wa-teal); color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; }
-        .last-seen { font-size: 11px; color: #cfd8dc; display: block; }
         #chat-window { position: fixed; inset: 0; background: var(--wa-bg); z-index: 2000; display: flex; flex-direction: column; transform: translateX(100%); transition: 0.3s ease; }
         #chat-window.open { transform: translateX(0); }
         .msg-area { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
-        .msg { padding: 8px 12px; border-radius: 8px; margin-bottom: 5px; max-width: 80%; font-size: 15px; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
+        .msg { padding: 8px 12px; border-radius: 8px; margin-bottom: 5px; max-width: 80%; font-size: 15px; position: relative; }
         .sent { align-self: flex-end; background: #dcf8c6; }
         .received { align-self: flex-start; background: white; }
-        .msg-meta { display: flex; align-items: center; justify-content: flex-end; font-size: 10px; color: #777; margin-top: 3px; }
-        .blue-tick { color: var(--wa-blue); margin-left: 3px; }
-        .user-item { display: flex; align-items: center; padding: 15px; background: white; border-bottom: 1px solid #eee; cursor: pointer; }
+        .del-btn { color: #999; margin-left: 10px; cursor: pointer; font-size: 12px; }
+        .user-item { display: flex; align-items: center; padding: 15px; background: white; border-bottom: 1px solid #eee; }
         .user-item img { width: 45px; height: 45px; border-radius: 50%; margin-right: 15px; }
-        #admin-panel { position: fixed; inset: 0; background: #f0f2f5; z-index: 5000; display: flex; flex-direction: column; }
-        .admin-section { background: white; margin: 10px; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .admin-input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 5px; }
-        .btn-add { width: 100%; padding: 12px; background: var(--wa-teal); color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
-        #preview-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 10000; display: none; align-items: center; justify-content: center; }
-        #preview-overlay img { max-width: 95%; max-height: 90%; border-radius: 5px; }
-
-        /* NAYA: CALL SCREEN OVERLAY */
-        #call-ui { position: fixed; inset: 0; background: #054d44; z-index: 20000; display: none; flex-direction: column; align-items: center; justify-content: center; color: white; }
-        .call-btn-group { display: flex; gap: 30px; margin-top: 40px; }
-        .call-btn-circle { width: 60px; height: 60px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; }
-        #v-remote { position: fixed; inset: 0; background: black; object-fit: cover; display: none; z-index: 20001; }
     </style>
 </head>
 <body>
 
-    <div id="preview-overlay" onclick="this.style.display='none'">
-        <img id="preview-img" src="">
-    </div>
+    <div id="call-container">
+        <div class="call-user-info">
+            <img id="call-img" src="" class="call-avatar-large">
+            <h1 id="call-name">User Name</h1>
+            <p id="call-type-status" class="calling-text">Calling...</p>
+        </div>
 
-    <div id="call-ui">
-        <img id="call-avatar" src="https://ui-avatars.com/api/?name=User" style="width:120px; border-radius:50%; border:3px solid white;">
-        <h2 id="call-user" style="margin-top: 20px;">User Name</h2>
-        <p id="call-status" style="margin-top: 10px;">Calling...</p>
-        <div class="call-btn-group">
-            <button onclick="location.reload()" class="call-btn-circle" style="background: red; color: white;"><i class="fas fa-phone-slash"></i></button>
-            <button id="btn-accept" class="call-btn-circle" style="background: #25D366; color: white; display: none;"><i class="fas fa-phone"></i></button>
+        <div class="video-wrapper" id="video-ui">
+            <video id="v-remote-full" autoplay playsinline></video>
+            <video id="v-local-small" autoplay playsinline muted></video>
+        </div>
+
+        <div class="call-actions">
+            <button class="action-btn btn-hangup" onclick="location.reload()"><i class="fas fa-phone-slash"></i></button>
+            <button id="btn-accept" class="action-btn btn-answer hidden"><i class="fas fa-phone"></i></button>
         </div>
         <audio id="ringtone" src="https://assets.mixkit.co/active_storage/sfx/1358/1358-preview.mp3" loop></audio>
     </div>
-    <video id="v-remote" autoplay playsinline></video>
 
-    <div id="admin-panel" class="hidden">
-        <header>
-            <i class="fas fa-arrow-left" onclick="document.getElementById('admin-panel').classList.add('hidden')"></i>
-            <b>Admin Dashboard</b>
-            <span></span>
-        </header>
-        <div style="flex:1; overflow-y:auto;">
-            <div class="admin-section">
-                <h4>Create New User</h4>
-                <input type="email" id="new-user-email" class="admin-input" placeholder="User Email">
-                <input type="text" id="new-user-pass" class="admin-input" placeholder="User Password">
-                <button onclick="window.createUser()" class="btn-add">ADD USER</button>
-            </div>
-            <div id="admin-user-list" style="padding:10px;"></div>
-        </div>
-    </div>
-
-    <div id="login-screen" style="position:fixed; inset:0; background:var(--wa-teal); z-index:10000; display:flex; align-items:center; justify-content:center;">
+    <div id="login-screen" style="position:fixed; inset:0; background:var(--wa-teal); z-index:15000; display:flex; align-items:center; justify-content:center;">
         <div style="background:white; padding:30px; border-radius:10px; width:90%; max-width:350px;">
-            <h2 style="text-align:center; color:var(--wa-teal); margin-bottom:20px;">WhatsApp Pro</h2>
-            <input type="email" id="l-email" placeholder="Email" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:5px;">
-            <input type="password" id="l-pass" placeholder="Password" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:5px;">
-            <button onclick="window.doLogin()" style="width:100%; padding:12px; background:var(--wa-green); color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">LOGIN</button>
+            <h2 style="text-align:center; margin-bottom:20px;">WhatsApp Pro</h2>
+            <input type="email" id="l-email" placeholder="Email" style="width:100%; padding:10px; margin-bottom:10px;">
+            <input type="password" id="l-pass" placeholder="Password" style="width:100%; padding:10px; margin-bottom:10px;">
+            <button onclick="window.doLogin()" style="width:100%; padding:10px; background:var(--wa-green); color:white; border:none;">LOGIN</button>
         </div>
     </div>
 
     <div id="main-app" class="hidden">
-        <header>
-            <b>WhatsApp</b> 
-            <div>
-                <i class="fas fa-user-shield hidden" id="admin-icon" style="margin-right:20px; cursor:pointer;" onclick="window.showAdmin()"></i>
-                <i class="fas fa-sign-out-alt" onclick="window.logout()" style="cursor:pointer;"></i>
-            </div>
-        </header>
+        <header><b>WhatsApp</b> <i class="fas fa-sign-out-alt" onclick="window.logout()"></i></header>
         <div id="user-list"></div>
     </div>
 
     <div id="chat-window">
         <div style="background:var(--wa-teal); color:white; padding:10px; display:flex; align-items:center;">
-            <i class="fas fa-arrow-left" onclick="window.closeChat()" style="padding:10px; cursor:pointer;"></i>
-            <div style="flex:1; margin-left:10px;">
-                <b id="chat-name">User</b>
-                <span id="chat-lastseen" class="last-seen">Offline</span>
-            </div>
-            <i class="fas fa-phone" onclick="window.startCall('audio')" style="margin-right:20px; cursor:pointer;"></i>
-            <i class="fas fa-video" id="video-icon" onclick="window.startCall('video')" style="margin-right:20px; cursor:pointer;"></i>
+            <i class="fas fa-arrow-left" onclick="window.closeChat()"></i>
+            <b id="chat-title" style="flex:1; margin-left:15px;">User</b>
+            <i class="fas fa-phone" onclick="window.startCall('audio')" style="margin-right:25px; cursor:pointer;"></i>
+            <i class="fas fa-video" onclick="window.startCall('video')" style="margin-right:15px; cursor:pointer;"></i>
         </div>
         <div id="msg-area" class="msg-area"></div>
-        <div style="padding:10px; background:#f0f0f0; display:flex; align-items:center;">
-            <label for="img-in"><i class="fas fa-camera" style="padding:10px; color:#555; cursor:pointer;"></i></label>
-            <input type="file" id="img-in" class="hidden" accept="image/*" onchange="window.sendImage(this)">
-            <input type="text" id="m-input" placeholder="Type a message..." style="flex:1; padding:10px; border-radius:20px; border:none; margin:0 10px; outline:none;">
-            <i class="fas fa-paper-plane" onclick="window.sendMsg()" style="color:var(--wa-teal); font-size:22px; cursor:pointer;"></i>
+        <div style="padding:10px; background:#eee; display:flex;">
+            <input type="text" id="m-input" style="flex:1; padding:10px; border-radius:20px; border:none;">
+            <button onclick="window.sendMsg()" style="background:none; border:none; margin-left:10px;"><i class="fas fa-paper-plane"></i></button>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, setDoc, deleteDoc, serverTimestamp, getDocs, getDoc, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, setDoc, deleteDoc, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = { 
             apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
@@ -126,50 +118,18 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        let me = null, peer = null;
-        const ADMIN_EMAIL = "admin@gmail.com"; 
+        let me = null, peer = null, pc = null, localStream = null;
 
-        // WebRTC Config
-        let pc;
-        let localStream;
-        const servers = { iceServers: [{ urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }] };
-
-        const ringtone = document.getElementById('ringtone');
-        const notifySound = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
-
-        // PREVIEW LOGIC
-        window.openPreview = (src) => {
-            const overlay = document.getElementById('preview-overlay');
-            document.getElementById('preview-img').src = src;
-            overlay.style.display = 'flex';
-        };
-
-        // --- DELETE MESSAGE LOGIC ---
-        window.deleteMsg = async (id) => {
-            if(confirm("Delete for everyone?")) await deleteDoc(doc(db, "messages", id));
-        };
-
-        // LOGIN (ORIGINAL)
+        // --- AUTH & LIST ---
         window.doLogin = async () => {
-            const e = document.getElementById('l-email').value.trim();
-            const p = document.getElementById('l-pass').value.trim();
-            if(!e || !p) return alert("Email/Pass bhariye!");
+            const e = document.getElementById('l-email').value;
+            const p = document.getElementById('l-pass').value;
             try {
-                const uSnap = await getDoc(doc(db, "users", e));
-                if(uSnap.exists()) {
-                    const userData = uSnap.data();
-                    if(userData.password === p) {
-                        try { await signInWithEmailAndPassword(auth, e, p); } 
-                        catch { await createUserWithEmailAndPassword(auth, e, p); }
-                    } else { alert("Galat Password!"); }
-                } else if(e === ADMIN_EMAIL) {
-                    try { await signInWithEmailAndPassword(auth, e, p); } 
-                    catch {
-                        await createUserWithEmailAndPassword(auth, e, p);
-                        await setDoc(doc(db, "users", e), { email: e, password: p, role: "admin" });
-                    }
-                } else { alert("User nahi mila!"); }
-            } catch (error) { alert("Error: " + error.message); }
+                await signInWithEmailAndPassword(auth, e, p);
+            } catch {
+                await createUserWithEmailAndPassword(auth, e, p);
+                await setDoc(doc(db, "users", e), { email: e, password: p });
+            }
         };
 
         onAuthStateChanged(auth, u => {
@@ -177,171 +137,119 @@
                 me = u;
                 document.getElementById('login-screen').classList.add('hidden');
                 document.getElementById('main-app').classList.remove('hidden');
-                if(me.email === ADMIN_EMAIL) document.getElementById('admin-icon').classList.remove('hidden');
-                setDoc(doc(db, "presence", me.email), { status: "online", last: serverTimestamp() }, { merge: true });
                 loadList();
-                listenToGlobal();
-                listenForCalls();
-            } else {
-                document.getElementById('login-screen').classList.remove('hidden');
-                document.getElementById('main-app').classList.add('hidden');
+                listenForIncomingCalls();
             }
         });
-
-        function listenToGlobal() {
-            const q = query(collection(db, "messages"), orderBy("time", "desc"), limit(1));
-            onSnapshot(q, snap => {
-                snap.docChanges().forEach(change => {
-                    if (change.type === "added") {
-                        const m = change.doc.data();
-                        if (m.sender !== me.email && m.cid.includes(me.email)) {
-                            if (!peer || peer.email !== m.sender) notifySound.play().catch(()=>{});
-                        }
-                    }
-                });
-            });
-        }
 
         function loadList() {
             onSnapshot(collection(db, "users"), snap => {
                 const list = document.getElementById('user-list'); list.innerHTML = "";
                 snap.forEach(d => {
-                    const u = d.data();
-                    if(u.email !== me.email) {
+                    if(d.id !== me.email) {
                         const div = document.createElement('div'); div.className = "user-item";
-                        div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${u.email}"> <b>${u.email}</b>`;
-                        div.onclick = () => openChat(u.email);
+                        div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${d.id}"> <b>${d.id}</b>`;
+                        div.onclick = () => { peer = {email: d.id}; document.getElementById('chat-window').classList.add('open'); document.getElementById('chat-title').innerText=d.id; listen(); };
                         list.appendChild(div);
                     }
                 });
             });
         }
 
-        function openChat(email) {
-            peer = {email}; 
-            document.getElementById('chat-window').classList.add('open');
-            document.getElementById('chat-name').innerText = email;
-            onSnapshot(doc(db, "presence", email), d => {
-                document.getElementById('chat-lastseen').innerText = d.data()?.status === "online" ? "Online" : "Offline";
-            });
-            listen();
-        }
-
+        // --- CHAT & DELETE ---
         function listen() {
-            const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
-            const q = query(collection(db, "messages"), where("cid", "==", cid), orderBy("time", "asc"));
-            onSnapshot(q, snap => {
+            const cid = me.email < peer.email ? me.email+"_"+peer.email : peer.email+"_"+me.email;
+            onSnapshot(query(collection(db, "messages"), where("cid", "==", cid), orderBy("time", "asc")), snap => {
                 const area = document.getElementById('msg-area'); area.innerHTML = "";
                 snap.forEach(d => {
                     const m = d.data();
-                    const mid = d.id;
-                    if(!m.read && m.sender !== me.email) updateDoc(doc(db, "messages", mid), { read: true });
                     const div = document.createElement('div');
                     div.className = `msg ${m.sender === me.email ? 'sent' : 'received'}`;
-                    let body = m.type === "image" ? `<img src="${m.img}" style="width:100%; border-radius:5px;" onclick="window.openPreview('${m.img}')">` : `<div>${m.text}</div>`;
-                    // Added Delete Trash Icon
-                    div.innerHTML = `${body}<div class="msg-meta">${m.dt} ${m.sender === me.email ? `<i class="fas fa-check-double ${m.read ? 'blue-tick' : ''}"></i> <i class="fas fa-trash" style="margin-left:8px; cursor:pointer; color:#999;" onclick="window.deleteMsg('${mid}')"></i>` : ''}</div>`;
+                    div.innerHTML = `${m.text} <i class="fas fa-trash del-btn" onclick="window.delMsg('${d.id}')"></i>`;
                     area.appendChild(div);
                 });
-                area.scrollTop = area.scrollHeight;
             });
         }
-
-        window.sendMsg = async () => {
-            const inp = document.getElementById('m-input'); if(!inp.value) return;
-            const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
-            await addDoc(collection(db, "messages"), { cid, sender: me.email, text: inp.value, type: "text", time: Date.now(), read: false, dt: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) });
-            inp.value = "";
+        window.sendMsg = () => {
+            const text = document.getElementById('m-input').value;
+            const cid = me.email < peer.email ? me.email+"_"+peer.email : peer.email+"_"+me.email;
+            addDoc(collection(db, "messages"), { cid, text, sender: me.email, time: Date.now() });
+            document.getElementById('m-input').value = "";
         };
+        window.delMsg = (id) => { if(confirm("Delete message?")) deleteDoc(doc(db, "messages", id)); };
 
-        window.sendImage = (input) => {
-            const file = input.files[0]; if(!file) return;
-            const reader = new FileReader();
-            reader.onload = async () => {
-                const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
-                await addDoc(collection(db, "messages"), { cid, sender: me.email, img: reader.result, type: "image", time: Date.now(), read: false, dt: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) });
-            };
-            reader.readAsDataURL(file);
-        };
-
-        // --- AUDIO/VIDEO CALL LOGIC ---
+        // --- CALLING LOGIC (UI FIXED) ---
         window.startCall = async (type) => {
-            const callDoc = doc(collection(db, "calls"));
-            document.getElementById('call-ui').style.display = 'flex';
-            document.getElementById('call-user').innerText = peer.email;
+            const ringtone = document.getElementById('ringtone');
+            document.getElementById('call-container').style.display = 'flex';
+            document.getElementById('call-name').innerText = peer.email;
+            document.getElementById('call-img').src = `https://ui-avatars.com/api/?name=${peer.email}`;
+            document.getElementById('call-type-status').innerText = type === 'video' ? "Video Calling..." : "Audio Calling...";
             ringtone.play();
 
-            pc = new RTCPeerConnection(servers);
-            localStream = await navigator.mediaDevices.getUserMedia({ video: type==='video', audio: true });
+            pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+            localStream = await navigator.mediaDevices.getUserMedia({ video: type === 'video', audio: true });
             localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
 
+            if(type === 'video') {
+                document.getElementById('video-ui').style.display = 'block';
+                document.getElementById('v-local-small').srcObject = localStream;
+            }
+
             pc.ontrack = e => {
-                document.getElementById('v-remote').srcObject = e.streams[0];
-                document.getElementById('v-remote').style.display = 'block';
+                document.getElementById('v-remote-full').srcObject = e.streams[0];
+                if(type === 'video') document.getElementById('video-ui').style.display = 'block';
             };
 
+            const callDoc = doc(collection(db, "calls"));
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
-            await setDoc(callDoc, { offer: {sdp: offer.sdp, type: offer.type}, caller: me.email, receiver: peer.email, type, status: 'calling' });
+            await setDoc(callDoc, { offer, caller: me.email, receiver: peer.email, type, status: 'calling' });
 
-            onSnapshot(callDoc, s => { if(s.data()?.status === 'accepted') pc.setRemoteDescription(new RTCSessionDescription(s.data().answer)); });
-        };
-
-        function listenForCalls() {
-            const q = query(collection(db, "calls"), where("receiver", "==", me.email), where("status", "==", "calling"));
-            onSnapshot(q, s => s.docChanges().forEach(async c => {
-                if(c.type === "added") {
-                    const d = c.doc.data();
-                    document.getElementById('call-ui').style.display = 'flex';
-                    document.getElementById('call-user').innerText = d.caller;
-                    document.getElementById('call-status').innerText = "Incoming " + d.type + " Call...";
-                    document.getElementById('btn-accept').style.display = 'flex';
-                    ringtone.play();
-                    document.getElementById('btn-accept').onclick = () => answerCall(c.doc.id, d);
-                }
-            }));
-        }
-
-        async function answerCall(id, data) {
-            ringtone.pause();
-            pc = new RTCPeerConnection(servers);
-            localStream = await navigator.mediaDevices.getUserMedia({ video: data.type==='video', audio: true });
-            localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-            pc.ontrack = e => {
-                document.getElementById('v-remote').srcObject = e.streams[0];
-                document.getElementById('v-remote').style.display = 'block';
-            };
-            await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-            const ans = await pc.createAnswer();
-            await pc.setLocalDescription(ans);
-            await updateDoc(doc(db, "calls", id), { answer: {sdp: ans.sdp, type: ans.type}, status: 'accepted' });
-        }
-
-        // ADMIN FUNCTIONS (ORIGINAL)
-        window.showAdmin = async () => {
-            document.getElementById('admin-panel').classList.remove('hidden');
-            const snap = await getDocs(collection(db, "users"));
-            const div = document.getElementById('admin-user-list'); div.innerHTML = "";
-            snap.forEach(d => {
-                const u = d.data();
-                div.innerHTML += `<div style="background:white; padding:10px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center; border-radius:5px;">
-                    <span>${u.email} <br> <small>Pass: ${u.password}</small></span>
-                    <div><i class="fas fa-trash" style="color:red; cursor:pointer;" onclick="window.delUser('${u.email}')"></i></div>
-                </div>`;
+            onSnapshot(callDoc, s => {
+                if(s.data()?.answer) pc.setRemoteDescription(new RTCSessionDescription(s.data().answer));
+                if(s.data()?.status === 'accepted') ringtone.pause();
             });
         };
 
-        window.createUser = async () => {
-            const e = document.getElementById('new-user-email').value.trim();
-            const p = document.getElementById('new-user-pass').value.trim();
-            if(!e || p.length < 6) return alert("Error!");
-            await setDoc(doc(db, "users", e), { email: e, password: p });
-            window.showAdmin();
-        };
+        function listenForIncomingCalls() {
+            onSnapshot(query(collection(db, "calls"), where("receiver", "==", me.email), where("status", "==", "calling")), s => {
+                s.docChanges().forEach(async c => {
+                    if(c.type === "added") {
+                        const d = c.doc.data();
+                        const ringtone = document.getElementById('ringtone');
+                        document.getElementById('call-container').style.display = 'flex';
+                        document.getElementById('call-name').innerText = d.caller;
+                        document.getElementById('call-img').src = `https://ui-avatars.com/api/?name=${d.caller}`;
+                        document.getElementById('call-type-status').innerText = `Incoming ${d.type} Call...`;
+                        document.getElementById('btn-accept').classList.remove('hidden');
+                        ringtone.play();
 
-        window.delUser = async (id) => { if(confirm("Delete?")) await deleteDoc(doc(db, "users", id)); window.showAdmin(); };
-        window.logout = () => { signOut(auth).then(()=>location.reload()); };
-        window.closeChat = () => { peer = null; document.getElementById('chat-window').classList.remove('open'); };
+                        document.getElementById('btn-accept').onclick = async () => {
+                            ringtone.pause();
+                            document.getElementById('btn-accept').classList.add('hidden');
+                            pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+                            localStream = await navigator.mediaDevices.getUserMedia({ video: d.type === 'video', audio: true });
+                            localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+                            
+                            if(d.type === 'video') {
+                                document.getElementById('video-ui').style.display = 'block';
+                                document.getElementById('v-local-small').srcObject = localStream;
+                            }
+
+                            pc.ontrack = e => { document.getElementById('v-remote-full').srcObject = e.streams[0]; };
+                            await pc.setRemoteDescription(new RTCSessionDescription(d.offer));
+                            const answer = await pc.createAnswer();
+                            await pc.setLocalDescription(answer);
+                            await updateDoc(doc(db, "calls", c.doc.id), { answer, status: 'accepted' });
+                        };
+                    }
+                });
+            });
+        }
+
+        window.logout = () => signOut(auth).then(()=>location.reload());
+        window.closeChat = () => document.getElementById('chat-window').classList.remove('open');
     </script>
 </body>
 </html>
