@@ -94,219 +94,267 @@
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, setDoc, deleteDoc, serverTimestamp, getDocs, getDoc, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+   <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, setDoc, deleteDoc, serverTimestamp, getDocs, getDoc, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        const firebaseConfig = { 
-            apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
-            authDomain: "my-chat-project-4e376.firebaseapp.com", 
-            projectId: "my-chat-project-4e376", 
-            appId: "1:264696350288:web:8c0367e6dce7c5f5517355"
-        };
+    const firebaseConfig = { 
+        apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
+        authDomain: "my-chat-project-4e376.firebaseapp.com", 
+        projectId: "my-chat-project-4e376", 
+        appId: "1:264696350288:web:8c0367e6dce7c5f5517355"
+    };
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        let me = null, peer = null;
-        const ADMIN_EMAIL = "admin@gmail.com"; 
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    let me = null, peer = null;
+    const ADMIN_EMAIL = "admin@gmail.com"; 
 
-        // Notification Sound
-        const notifySound = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
+    // --- WebRTC Config ---
+    let pc;
+    let localStream;
+    const servers = { iceServers: [{ urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }], iceCandidatePoolSize: 10 };
 
-        // Image Preview Logic
-        window.openPreview = (src) => {
-            const overlay = document.getElementById('preview-overlay');
-            document.getElementById('preview-img').src = src;
-            overlay.style.display = 'flex';
-        };
+    const notifySound = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
 
-        window.doLogin = async () => {
-            const e = document.getElementById('l-email').value.trim();
-            const p = document.getElementById('l-pass').value.trim();
-            if(!e || !p) return alert("Email/Pass bhariye!");
+    window.openPreview = (src) => {
+        const overlay = document.getElementById('preview-overlay');
+        document.getElementById('preview-img').src = src;
+        overlay.style.display = 'flex';
+    };
 
-            try {
-                const uSnap = await getDoc(doc(db, "users", e));
-                if(uSnap.exists()) {
-                    const userData = uSnap.data();
-                    if(userData.password === p) {
-                        try {
-                            await signInWithEmailAndPassword(auth, e, p);
-                        } catch (err) {
-                            if(err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-                                await createUserWithEmailAndPassword(auth, e, p);
-                            } else { throw err; }
-                        }
-                    } else { alert("Galat Password!"); }
-                } else if(e === ADMIN_EMAIL) {
-                    try {
-                        await signInWithEmailAndPassword(auth, e, p);
-                    } catch {
-                        await createUserWithEmailAndPassword(auth, e, p);
-                        await setDoc(doc(db, "users", e), { email: e, password: p, role: "admin" });
+    // --- NEW: Delete Message Logic ---
+    window.deleteMsg = async (id) => {
+        if(confirm("Delete message for everyone?")) {
+            await deleteDoc(doc(db, "messages", id));
+        }
+    };
+
+    window.doLogin = async () => {
+        const e = document.getElementById('l-email').value.trim();
+        const p = document.getElementById('l-pass').value.trim();
+        if(!e || !p) return alert("Email/Pass bhariye!");
+        try {
+            const uSnap = await getDoc(doc(db, "users", e));
+            if(uSnap.exists()) {
+                const userData = uSnap.data();
+                if(userData.password === p) {
+                    try { await signInWithEmailAndPassword(auth, e, p); } 
+                    catch (err) {
+                        if(err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+                            await createUserWithEmailAndPassword(auth, e, p);
+                        } else { throw err; }
                     }
-                } else {
-                    alert("User database mein nahi mila! Pehle Admin panel se banayein.");
+                } else { alert("Galat Password!"); }
+            } else if(e === ADMIN_EMAIL) {
+                try { await signInWithEmailAndPassword(auth, e, p); } 
+                catch {
+                    await createUserWithEmailAndPassword(auth, e, p);
+                    await setDoc(doc(db, "users", e), { email: e, password: p, role: "admin" });
                 }
-            } catch (error) { alert("Error: " + error.message); }
-        };
+            } else { alert("User database mein nahi mila!"); }
+        } catch (error) { alert("Error: " + error.message); }
+    };
 
-        onAuthStateChanged(auth, u => {
-            if(u) {
-                me = u;
-                document.getElementById('login-screen').classList.add('hidden');
-                document.getElementById('main-app').classList.remove('hidden');
-                if(me.email === ADMIN_EMAIL) document.getElementById('admin-icon').classList.remove('hidden');
-                setDoc(doc(db, "presence", me.email), { status: "online", last: serverTimestamp() }, { merge: true });
-                if(Notification.permission !== "granted") Notification.requestPermission();
-                loadList();
-                listenToGlobal();
-            } else {
-                document.getElementById('login-screen').classList.remove('hidden');
-                document.getElementById('main-app').classList.add('hidden');
-            }
-        });
+    onAuthStateChanged(auth, u => {
+        if(u) {
+            me = u;
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+            if(me.email === ADMIN_EMAIL) document.getElementById('admin-icon').classList.remove('hidden');
+            setDoc(doc(db, "presence", me.email), { status: "online", last: serverTimestamp() }, { merge: true });
+            loadList();
+            listenToGlobal();
+            listenForIncomingCalls(); // Start listening for calls
+        } else {
+            document.getElementById('login-screen').classList.remove('hidden');
+            document.getElementById('main-app').classList.add('hidden');
+        }
+    });
 
-        // Background Message & Sound Listener
-        function listenToGlobal() {
-            const q = query(collection(db, "messages"), orderBy("time", "desc"), limit(1));
-            onSnapshot(q, snap => {
-                snap.docChanges().forEach(change => {
-                    if (change.type === "added") {
-                        const m = change.doc.data();
-                        // Agar naya message kisi aur ne bheja hai aur main us chat mein nahi hoon
-                        if (m.sender !== me.email && m.cid.includes(me.email)) {
-                            if (!peer || peer.email !== m.sender) {
-                                notifySound.play().catch(()=>{}); // Ting sound
-                                if (Notification.permission === "granted") {
-                                    new Notification("Naya Message: " + m.sender, {
-                                        body: m.type === 'text' ? m.text : '📷 Photo'
-                                    });
-                                }
-                            }
+    function listenToGlobal() {
+        const q = query(collection(db, "messages"), orderBy("time", "desc"), limit(1));
+        onSnapshot(q, snap => {
+            snap.docChanges().forEach(change => {
+                if (change.type === "added") {
+                    const m = change.doc.data();
+                    if (m.sender !== me.email && m.cid.includes(me.email)) {
+                        if (!peer || peer.email !== m.sender) {
+                            notifySound.play().catch(()=>{});
                         }
                     }
-                });
+                }
             });
-        }
+        });
+    }
 
-        function loadList() {
-            onSnapshot(collection(db, "users"), snap => {
-                const list = document.getElementById('user-list'); list.innerHTML = "";
-                snap.forEach(d => {
-                    const u = d.data();
-                    if(u.email !== me.email) {
-                        const div = document.createElement('div'); div.className = "user-item";
-                        div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${u.email}"> <b>${u.email}</b>`;
-                        div.onclick = () => openChat(u.email);
-                        list.appendChild(div);
-                    }
-                });
-            });
-        }
-
-        function openChat(email) {
-            peer = {email}; 
-            document.getElementById('chat-window').classList.add('open');
-            document.getElementById('chat-name').innerText = email;
-            onSnapshot(doc(db, "presence", email), d => {
-                document.getElementById('chat-lastseen').innerText = d.data()?.status === "online" ? "Online" : "Offline";
-            });
-            listen();
-        }
-
-        function listen() {
-            const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
-            const q = query(collection(db, "messages"), where("cid", "==", cid), orderBy("time", "asc"));
-            onSnapshot(q, snap => {
-                const area = document.getElementById('msg-area'); area.innerHTML = "";
-                snap.forEach(d => {
-                    const m = d.data();
-                    if(!m.read && m.sender !== me.email) updateDoc(doc(db, "messages", d.id), { read: true });
-                    const div = document.createElement('div');
-                    div.className = `msg ${m.sender === me.email ? 'sent' : 'received'}`;
-                    // Added Preview Click
-                    let body = m.type === "image" ? `<img src="${m.img}" style="width:100%; border-radius:5px; cursor:pointer;" onclick="window.openPreview('${m.img}')">` : `<div>${m.text}</div>`;
-                    div.innerHTML = `${body}<div class="msg-meta">${m.dt} ${m.sender === me.email ? `<i class="fas fa-check-double ${m.read ? 'blue-tick' : ''}"></i>` : ''}</div>`;
-                    area.appendChild(div);
-                });
-                area.scrollTop = area.scrollHeight;
-            });
-        }
-
-        window.sendMsg = async () => {
-            const inp = document.getElementById('m-input'); if(!inp.value) return;
-            const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
-            await addDoc(collection(db, "messages"), {
-                cid, sender: me.email, text: inp.value, type: "text", time: Date.now(), read: false,
-                dt: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
-            });
-            inp.value = "";
-        };
-
-        window.sendImage = (input) => {
-            const file = input.files[0]; if(!file) return;
-            const reader = new FileReader();
-            reader.onload = async () => {
-                const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
-                await addDoc(collection(db, "messages"), {
-                    cid, sender: me.email, img: reader.result, type: "image", time: Date.now(), read: false,
-                    dt: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
-                });
-            };
-            reader.readAsDataURL(file);
-        };
-
-        window.showAdmin = async () => {
-            document.getElementById('admin-panel').classList.remove('hidden');
-            const snap = await getDocs(collection(db, "users"));
-            const div = document.getElementById('admin-user-list'); div.innerHTML = "";
+    function loadList() {
+        onSnapshot(collection(db, "users"), snap => {
+            const list = document.getElementById('user-list'); list.innerHTML = "";
             snap.forEach(d => {
                 const u = d.data();
-                div.innerHTML += `<div style="background:white; padding:10px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center; border-radius:5px;">
-                    <span>${u.email} <br> <small>Pass: ${u.password}</small></span>
-                    <div>
-                        <i class="fas fa-key" style="color:blue; margin-right:15px; cursor:pointer;" onclick="window.changePass('${u.email}')"></i>
-                        <i class="fas fa-trash" style="color:red; cursor:pointer;" onclick="window.delUser('${u.email}')"></i>
-                    </div>
-                </div>`;
+                if(u.email !== me.email) {
+                    const div = document.createElement('div'); div.className = "user-item";
+                    div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${u.email}"> <b>${u.email}</b>`;
+                    div.onclick = () => openChat(u.email);
+                    list.appendChild(div);
+                }
+            });
+        });
+    }
+
+    function openChat(email) {
+        peer = {email}; 
+        document.getElementById('chat-window').classList.add('open');
+        document.getElementById('chat-name').innerText = email;
+        onSnapshot(doc(db, "presence", email), d => {
+            document.getElementById('chat-lastseen').innerText = d.data()?.status === "online" ? "Online" : "Offline";
+        });
+        listen();
+    }
+
+    function listen() {
+        const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
+        const q = query(collection(db, "messages"), where("cid", "==", cid), orderBy("time", "asc"));
+        onSnapshot(q, snap => {
+            const area = document.getElementById('msg-area'); area.innerHTML = "";
+            snap.forEach(d => {
+                const m = d.data();
+                const mid = d.id;
+                if(!m.read && m.sender !== me.email) updateDoc(doc(db, "messages", mid), { read: true });
+                const div = document.createElement('div');
+                div.className = `msg ${m.sender === me.email ? 'sent' : 'received'}`;
+                
+                let body = m.type === "image" ? `<img src="${m.img}" style="width:100%; border-radius:5px; cursor:pointer;" onclick="window.openPreview('${m.img}')">` : `<div>${m.text}</div>`;
+                
+                // Added Trash icon for deletion
+                div.innerHTML = `
+                    ${body}
+                    <div class="msg-meta">
+                        ${m.dt} 
+                        ${m.sender === me.email ? `<i class="fas fa-check-double ${m.read ? 'blue-tick' : ''}"></i> <i class="fas fa-trash" style="margin-left:8px; cursor:pointer; color:#999;" onclick="window.deleteMsg('${mid}')"></i>` : ''}
+                    </div>`;
+                area.appendChild(div);
+            });
+            area.scrollTop = area.scrollHeight;
+        });
+    }
+
+    window.sendMsg = async () => {
+        const inp = document.getElementById('m-input'); if(!inp.value) return;
+        const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
+        await addDoc(collection(db, "messages"), {
+            cid, sender: me.email, text: inp.value, type: "text", time: Date.now(), read: false,
+            dt: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+        });
+        inp.value = "";
+    };
+
+    window.sendImage = (input) => {
+        const file = input.files[0]; if(!file) return;
+        const reader = new FileReader();
+        reader.onload = async () => {
+            const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
+            await addDoc(collection(db, "messages"), {
+                cid, sender: me.email, img: reader.result, type: "image", time: Date.now(), read: false,
+                dt: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
             });
         };
+        reader.readAsDataURL(file);
+    };
 
-        window.createUser = async () => {
-            const e = document.getElementById('new-user-email').value.trim();
-            const p = document.getElementById('new-user-pass').value.trim();
-            if(!e || p.length < 6) return alert("Email daalein aur password kam se kam 6 char ka!");
-            
-            try {
-                await setDoc(doc(db, "users", e), { email: e, password: p });
-                try {
-                    await createUserWithEmailAndPassword(auth, e, p);
-                } catch (ae) { 
-                    if(ae.code !== 'auth/email-already-in-use') throw ae;
-                }
-                alert("User Created Automatically!");
-                window.showAdmin();
-            } catch (err) { alert(err.message); }
-        };
+    // --- Native WebRTC Calling Logic ---
+    window.startCall = async (type = 'video') => {
+        const callDoc = doc(collection(db, "calls"));
+        pc = new RTCPeerConnection(servers);
+        localStream = await navigator.mediaDevices.getUserMedia({ video: type==='video', audio: true });
+        localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+        
+        pc.ontrack = e => showCallUI(e.streams[0]);
+        pc.onicecandidate = e => e.candidate && addDoc(collection(callDoc, "offerCandidates"), e.candidate.toJSON());
 
-        window.changePass = async (email) => {
-            const n = prompt("Naya Password daalo (Min 6 char):");
-            if(n && n.length >= 6) {
-                await updateDoc(doc(db, "users", email), { password: n });
-                alert("Password updated in Database!");
-                window.showAdmin();
-            } else { alert("Password chhota hai!"); }
-        };
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await setDoc(callDoc, { offer: {sdp: offer.sdp, type: offer.type}, caller: me.email, receiver: peer.email, type, status: 'calling' });
 
-        window.delUser = async (id) => { if(confirm("Delete?")) await deleteDoc(doc(db, "users", id)); window.showAdmin(); };
-        window.logout = () => { setDoc(doc(db, "presence", me.email), { status: "offline" }, { merge: true }); signOut(auth).then(()=>location.reload()); };
-        window.closeChat = () => { 
-            peer = null;
-            document.getElementById('chat-window').classList.remove('open');
-        };
-    </script>
+        onSnapshot(callDoc, snap => { if(!pc.currentRemoteDescription && snap.data()?.answer) pc.setRemoteDescription(new RTCSessionDescription(snap.data().answer)); });
+        onSnapshot(collection(callDoc, "answerCandidates"), s => s.docChanges().forEach(c => c.type === 'added' && pc.addIceCandidate(new RTCIceCandidate(c.doc.data()))));
+    };
+
+    function listenForIncomingCalls() {
+        const q = query(collection(db, "calls"), where("receiver", "==", me.email), where("status", "==", "calling"));
+        onSnapshot(q, s => s.docChanges().forEach(async c => {
+            if(c.type === "added") {
+                const d = c.doc.data();
+                if(confirm(`Incoming ${d.type} call from ${d.caller}?`)) answerCall(c.doc.id, d);
+            }
+        }));
+    }
+
+    async function answerCall(id, data) {
+        const callDoc = doc(db, "calls", id);
+        pc = new RTCPeerConnection(servers);
+        localStream = await navigator.mediaDevices.getUserMedia({ video: data.type==='video', audio: true });
+        localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+        pc.ontrack = e => showCallUI(e.streams[0]);
+        pc.onicecandidate = e => e.candidate && addDoc(collection(callDoc, "answerCandidates"), e.candidate.toJSON());
+        await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+        const ans = await pc.createAnswer();
+        await pc.setLocalDescription(ans);
+        await updateDoc(callDoc, { answer: {sdp: ans.sdp, type: ans.type}, status: 'accepted' });
+        onSnapshot(collection(callDoc, "offerCandidates"), s => s.docChanges().forEach(c => c.type === 'added' && pc.addIceCandidate(new RTCIceCandidate(c.doc.data()))));
+    }
+
+    function showCallUI(stream) {
+        let ui = document.getElementById('call-ui');
+        if(!ui) {
+            ui = document.createElement('div'); ui.id = "call-ui";
+            ui.style = "position:fixed; inset:0; background:black; z-index:9999; display:flex; flex-direction:column; align-items:center;";
+            ui.innerHTML = `<video id="v-remote" autoplay playsinline style="width:100%; flex:1; background:#222;"></video>
+                            <button onclick="location.reload()" style="margin:20px; padding:15px; border-radius:50%; background:red; color:white; border:none;"><i class="fas fa-phone-slash"></i></button>`;
+            document.body.appendChild(ui);
+        }
+        document.getElementById('v-remote').srcObject = stream;
+    }
+
+    window.showAdmin = async () => {
+        document.getElementById('admin-panel').classList.remove('hidden');
+        const snap = await getDocs(collection(db, "users"));
+        const div = document.getElementById('admin-user-list'); div.innerHTML = "";
+        snap.forEach(d => {
+            const u = d.data();
+            div.innerHTML += `<div style="background:white; padding:10px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center; border-radius:5px;">
+                <span>${u.email} <br> <small>Pass: ${u.password}</small></span>
+                <div>
+                    <i class="fas fa-key" style="color:blue; margin-right:15px; cursor:pointer;" onclick="window.changePass('${u.email}')"></i>
+                    <i class="fas fa-trash" style="color:red; cursor:pointer;" onclick="window.delUser('${u.email}')"></i>
+                </div>
+            </div>`;
+        });
+    };
+
+    window.createUser = async () => {
+        const e = document.getElementById('new-user-email').value.trim();
+        const p = document.getElementById('new-user-pass').value.trim();
+        if(!e || p.length < 6) return alert("Email daalein aur password kam se kam 6 char ka!");
+        try {
+            await setDoc(doc(db, "users", e), { email: e, password: p });
+            try { await createUserWithEmailAndPassword(auth, e, p); } catch (ae) { if(ae.code !== 'auth/email-already-in-use') throw ae; }
+            alert("User Created!"); window.showAdmin();
+        } catch (err) { alert(err.message); }
+    };
+
+    window.changePass = async (email) => {
+        const n = prompt("Naya Password:");
+        if(n && n.length >= 6) { await updateDoc(doc(db, "users", email), { password: n }); alert("Updated!"); window.showAdmin(); }
+    };
+
+    window.delUser = async (id) => { if(confirm("Delete?")) await deleteDoc(doc(db, "users", id)); window.showAdmin(); };
+    window.logout = () => { setDoc(doc(db, "presence", me.email), { status: "offline" }, { merge: true }); signOut(auth).then(()=>location.reload()); };
+    window.closeChat = () => { peer = null; document.getElementById('chat-window').classList.remove('open'); };
+</script>
 </body>
 </html>
+
