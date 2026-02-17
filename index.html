@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WhatsApp Pro - Calling & Delete Fixed</title>
+    <title>WhatsApp Pro - Dashboard Fixed</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
     <style>
@@ -22,8 +22,7 @@
         .msg-meta { display: flex; align-items: center; justify-content: flex-end; font-size: 10px; color: #777; margin-top: 3px; }
         .blue-tick { color: var(--wa-blue); margin-left: 3px; }
         /* Delete Icon Style */
-        .del-msg { font-size: 12px; color: #999; margin-left: 10px; cursor: pointer; visibility: hidden; }
-        .msg:hover .del-msg { visibility: visible; }
+        .del-msg { font-size: 11px; color: #b0bec5; margin-left: 8px; cursor: pointer; }
         
         .user-item { display: flex; align-items: center; padding: 15px; background: white; border-bottom: 1px solid #eee; cursor: pointer; }
         .user-item img { width: 45px; height: 45px; border-radius: 50%; margin-right: 15px; }
@@ -85,7 +84,7 @@
                 <b id="chat-name">User</b>
                 <span id="chat-lastseen" class="last-seen">Offline</span>
             </div>
-            <i class="fas fa-phone" onclick="window.startCall('audio')" style="margin-right:25px; cursor:pointer;"></i>
+            <i class="fas fa-phone" onclick="window.startCall('audio')" style="margin-right:20px; cursor:pointer;"></i>
             <i class="fas fa-video" id="video-icon" onclick="window.startCall('video')" style="margin-right:10px; cursor:pointer;"></i>
         </div>
         <div id="msg-area" class="msg-area"></div>
@@ -102,6 +101,7 @@
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, setDoc, deleteDoc, serverTimestamp, getDocs, getDoc, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+        // CONFIG (Keep your own)
         const firebaseConfig = { 
             apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
             authDomain: "my-chat-project-4e376.firebaseapp.com", 
@@ -115,6 +115,7 @@
         let me = null, peer = null;
         const ADMIN_EMAIL = "admin@gmail.com"; 
 
+        // Sound and Login Logic...
         const notifySound = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
 
         window.openPreview = (src) => {
@@ -159,6 +160,7 @@
             }
         });
 
+        // Global Listeners...
         function listenToGlobal() {
             const q = query(collection(db, "messages"), orderBy("time", "desc"), limit(1));
             onSnapshot(q, snap => {
@@ -212,7 +214,7 @@
                     div.className = `msg ${m.sender === me.email ? 'sent' : 'received'}`;
                     let body = m.type === "image" ? `<img src="${m.img}" style="width:100%; border-radius:5px; cursor:pointer;" onclick="window.openPreview('${m.img}')">` : `<div>${m.text}</div>`;
                     
-                    // Added Delete Button (trash icon)
+                    // Trash Icon for Sender
                     const delHtml = m.sender === me.email ? `<i class="fas fa-trash del-msg" onclick="window.deleteMessage('${d.id}')"></i>` : '';
                     
                     div.innerHTML = `${body}<div class="msg-meta">${m.dt} ${m.sender === me.email ? `<i class="fas fa-check-double ${m.read ? 'blue-tick' : ''}"></i>` : ''} ${delHtml}</div>`;
@@ -223,7 +225,7 @@
         }
 
         window.deleteMessage = async (id) => {
-            if(confirm("Delete this message?")) await deleteDoc(doc(db, "messages", id));
+            if(confirm("Message delete karein?")) await deleteDoc(doc(db, "messages", id));
         };
 
         window.sendMsg = async () => {
@@ -249,19 +251,16 @@
             reader.readAsDataURL(file);
         };
 
-        // ZegoCloud Calling Logic
+        // ZEGO CALLING
         window.startCall = (mode) => {
             const userID = me.email;
             const userName = me.email;
-            const appID = 1452296766; // Replace with your Zego AppID
-            const serverSecret = "66f773957cc433e5456f9185a1a1f0f5"; // Replace with your ServerSecret
+            const appID = 1452296766; 
+            const serverSecret = "66f773957cc433e5456f9185a1a1f0f5"; 
             
             const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, peer.email, userID, userName);
             const zp = ZegoUIKitPrebuilt.create(kitToken);
             
-            zp.addPlugins({ ZegoInvitationTypeVideoCall: 1, ZegoInvitationTypeVoiceCall: 0 });
-            
-            const callType = mode === 'video' ? 1 : 0;
             zp.sendCallInvitation({
                 invitees: [{ userID: peer.email, userName: peer.email }],
                 isVideoCall: mode === 'video',
@@ -269,6 +268,7 @@
             });
         };
 
+        // ADMIN DASHBOARD (With KEY icon wapas)
         window.showAdmin = async () => {
             document.getElementById('admin-panel').classList.remove('hidden');
             const snap = await getDocs(collection(db, "users"));
@@ -278,10 +278,20 @@
                 div.innerHTML += `<div style="background:white; padding:10px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center; border-radius:5px;">
                     <span>${u.email} <br> <small>Pass: ${u.password}</small></span>
                     <div>
+                        <i class="fas fa-key" style="color:blue; margin-right:20px; cursor:pointer;" onclick="window.changePass('${u.email}')"></i>
                         <i class="fas fa-trash" style="color:red; cursor:pointer;" onclick="window.delUser('${u.email}')"></i>
                     </div>
                 </div>`;
             });
+        };
+
+        window.changePass = async (email) => {
+            const n = prompt("Naya Password daalo (Min 6 char):");
+            if(n && n.length >= 6) {
+                await updateDoc(doc(db, "users", email), { password: n });
+                alert("Password update ho gaya!");
+                window.showAdmin();
+            } else if(n) { alert("Password chhota hai!"); }
         };
 
         window.createUser = async () => {
@@ -292,7 +302,7 @@
             window.showAdmin();
         };
 
-        window.delUser = async (id) => { if(confirm("Delete?")) await deleteDoc(doc(db, "users", id)); window.showAdmin(); };
+        window.delUser = async (id) => { if(confirm("User delete karein?")) await deleteDoc(doc(db, "users", id)); window.showAdmin(); };
         window.logout = () => { setDoc(doc(db, "presence", me.email), { status: "offline" }, { merge: true }); signOut(auth).then(()=>location.reload()); };
         window.closeChat = () => { peer = null; document.getElementById('chat-window').classList.remove('open'); };
     </script>
