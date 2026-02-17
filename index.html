@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WhatsApp Pro - Admin & Calling Fixed</title>
+    <title>WhatsApp Pro - Calling Final Fix</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root { --wa-teal: #075E54; --wa-green: #25D366; --wa-blue: #34B7F1; --wa-bg: #efe7de; --wa-dark: #054d44; }
@@ -11,31 +11,27 @@
         body { background: #dadbd3; height: 100vh; overflow: hidden; }
         .hidden { display: none !important; }
 
-        /* Calling UI - Pickup Option */
+        /* --- WhatsApp Style Call Screen --- */
         #call-screen { position: fixed; inset: 0; background: var(--wa-dark); z-index: 50000; display: none; flex-direction: column; align-items: center; justify-content: space-around; color: white; text-align: center; }
-        .caller-img { width: 120px; height: 120px; border-radius: 50%; border: 3px solid var(--wa-green); object-fit: cover; }
-        .call-btns { display: flex; gap: 40px; }
-        .c-btn { width: 65px; height: 65px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; font-size: 25px; cursor: pointer; color: white; }
+        .caller-img { width: 140px; height: 140px; border-radius: 50%; border: 4px solid var(--wa-green); object-fit: cover; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        .call-btns { display: flex; gap: 50px; }
+        .c-btn { width: 75px; height: 75px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; font-size: 30px; cursor: pointer; color: white; transition: 0.2s; }
         
-        /* Video Container */
+        /* Video Display */
         #video-container { position: fixed; inset: 0; background: black; z-index: 51000; display: none; }
         #remote-video { width: 100%; height: 100%; object-fit: cover; }
-        #local-video { position: absolute; top: 20px; right: 20px; width: 90px; height: 130px; border-radius: 8px; border: 2px solid white; object-fit: cover; }
+        #local-video { position: absolute; top: 20px; right: 20px; width: 100px; height: 150px; border-radius: 12px; border: 2px solid white; object-fit: cover; z-index: 51001; }
 
-        /* Admin Panel */
-        #admin-panel { position: fixed; inset: 0; background: #f0f2f5; z-index: 10000; display: none; flex-direction: column; }
-        .admin-box { background: white; margin: 10px; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .admin-input { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 5px; }
-
-        /* Chat UI */
+        /* Admin & UI */
         header { background: var(--wa-teal); color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; }
         #chat-window { position: fixed; inset: 0; background: var(--wa-bg); z-index: 2000; display: flex; flex-direction: column; transform: translateX(100%); transition: 0.3s; }
         #chat-window.open { transform: translateX(0); }
         .msg-area { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
-        .msg { padding: 8px 12px; border-radius: 8px; margin-bottom: 5px; max-width: 80%; position: relative; background: white; }
+        .msg { padding: 8px 12px; border-radius: 8px; margin-bottom: 5px; max-width: 80%; background: white; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
         .sent { align-self: flex-end; background: #dcf8c6; }
         .user-item { display: flex; align-items: center; padding: 15px; background: white; border-bottom: 1px solid #eee; cursor: pointer; }
-        .user-item img { width: 45px; height: 45px; border-radius: 50%; margin-right: 15px; }
+        .user-item img { width: 50px; height: 50px; border-radius: 50%; margin-right: 15px; }
+        #admin-panel { position: fixed; inset: 0; background: #f0f2f5; z-index: 10000; display: none; flex-direction: column; }
     </style>
 </head>
 <body>
@@ -43,8 +39,8 @@
     <div id="call-screen">
         <div>
             <img id="c-img" src="" class="caller-img">
-            <h2 id="c-name">User</h2>
-            <p id="c-status" style="color:var(--wa-green); margin-top:10px;">Incoming Call...</p>
+            <h2 id="c-name">User Name</h2>
+            <p id="c-status" style="color:#25D366; margin-top:15px; font-weight:bold;">INCOMING CALL...</p>
         </div>
         <div class="call-btns">
             <button class="c-btn" style="background:#ff3b30;" onclick="window.endCall()"><i class="fas fa-phone-slash"></i></button>
@@ -56,7 +52,7 @@
     <div id="video-container">
         <video id="remote-video" autoplay playsinline></video>
         <video id="local-video" autoplay playsinline muted></video>
-        <button onclick="window.endCall()" style="position:absolute; bottom:30px; left:50%; transform:translateX(-50%); background:red;" class="c-btn"><i class="fas fa-phone-slash"></i></button>
+        <button onclick="window.endCall()" style="position:absolute; bottom:40px; left:50%; transform:translateX(-50%); background:red;" class="c-btn"><i class="fas fa-phone-slash"></i></button>
     </div>
 
     <div id="admin-panel">
@@ -65,21 +61,20 @@
             <b>Admin Dashboard</b>
             <span></span>
         </header>
-        <div class="admin-box">
-            <h4>Add New User</h4>
-            <input type="email" id="adm-email" class="admin-input" placeholder="User Email">
-            <input type="text" id="adm-pass" class="admin-input" placeholder="Password">
-            <button onclick="window.addUser()" style="width:100%; padding:10px; background:var(--wa-teal); color:white; border:none; border-radius:5px;">Create User</button>
+        <div style="padding:15px;">
+            <input type="email" id="adm-email" placeholder="User Email" style="width:100%; padding:10px; margin-bottom:10px;">
+            <input type="text" id="adm-pass" placeholder="Password" style="width:100%; padding:10px; margin-bottom:10px;">
+            <button onclick="window.addUser()" style="width:100%; padding:10px; background:var(--wa-teal); color:white; border:none; border-radius:5px;">Add User</button>
         </div>
-        <div id="admin-list" style="padding:10px;"></div>
+        <div id="admin-list" style="padding:15px;"></div>
     </div>
 
     <div id="login-screen" style="position:fixed; inset:0; background:var(--wa-teal); z-index:60000; display:flex; align-items:center; justify-content:center;">
         <div style="background:white; padding:30px; border-radius:10px; width:90%; max-width:350px;">
-            <h2 style="text-align:center;">WhatsApp Pro</h2>
+            <h2 style="text-align:center; color:var(--wa-teal);">WhatsApp Pro</h2>
             <input type="email" id="l-email" placeholder="Email" style="width:100%; padding:12px; margin-top:15px;">
             <input type="password" id="l-pass" placeholder="Password" style="width:100%; padding:12px; margin-top:10px;">
-            <button onclick="window.doLogin()" style="width:100%; padding:12px; background:var(--wa-green); color:white; border:none; margin-top:15px;">LOGIN</button>
+            <button onclick="window.doLogin()" style="width:100%; padding:12px; background:var(--wa-green); color:white; border:none; margin-top:20px; cursor:pointer;">LOGIN</button>
         </div>
     </div>
 
@@ -98,15 +93,15 @@
         <div style="background:var(--wa-teal); color:white; padding:10px; display:flex; align-items:center;">
             <i class="fas fa-arrow-left" onclick="window.closeChat()"></i>
             <b id="chat-title" style="flex:1; margin-left:15px;">User</b>
-            <i class="fas fa-phone" onclick="window.startCall('audio')" style="margin-right:20px;"></i>
-            <i class="fas fa-video" onclick="window.startCall('video')" style="margin-right:10px;"></i>
+            <i class="fas fa-phone" onclick="window.startCall('audio')" style="margin-right:25px; cursor:pointer;"></i>
+            <i class="fas fa-video" onclick="window.startCall('video')" style="margin-right:15px; cursor:pointer;"></i>
         </div>
         <div id="msg-area" class="msg-area"></div>
-        <div style="padding:10px; background:#f0f0f0; display:flex;">
-            <label for="img-in"><i class="fas fa-camera" style="padding:10px;"></i></label>
-            <input type="file" id="img-in" class="hidden" accept="image/*" onchange="window.sendImage(this)">
-            <input type="text" id="m-input" style="flex:1; padding:10px; border-radius:20px; border:none; margin:0 10px;">
-            <i class="fas fa-paper-plane" onclick="window.sendMsg()" style="color:var(--wa-teal); margin-top:10px;"></i>
+        <div style="padding:10px; background:#f0f0f0; display:flex; align-items:center;">
+            <label for="img-in"><i class="fas fa-camera" style="padding:10px; cursor:pointer;"></i></label>
+            <input type="file" id="img-in" class="hidden" onchange="window.sendImage(this)">
+            <input type="text" id="m-input" placeholder="Type a message..." style="flex:1; padding:10px; border-radius:20px; border:none; margin:0 10px;">
+            <i class="fas fa-paper-plane" onclick="window.sendMsg()" style="color:var(--wa-teal); cursor:pointer;"></i>
         </div>
     </div>
 
@@ -126,7 +121,9 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
         let me = null, peer = null, pc = null, localStream = null;
+        const config = { iceServers: [{ urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }] };
 
+        // --- AUTH ---
         window.doLogin = async () => {
             const e = document.getElementById('l-email').value;
             const p = document.getElementById('l-pass').value;
@@ -145,14 +142,12 @@
             }
         });
 
-        // --- ADMIN DASHBOARD FUNCTIONS ---
+        // --- ADMIN DASHBOARD ---
         window.showAdmin = async () => {
             document.getElementById('admin-panel').style.display = 'flex';
             const snap = await getDocs(collection(db, "users"));
             const list = document.getElementById('admin-list'); list.innerHTML = "";
-            snap.forEach(d => {
-                list.innerHTML += `<div class="admin-box"><b>${d.id}</b><br>Pass: ${d.data().password}</div>`;
-            });
+            snap.forEach(d => { list.innerHTML += `<div style="background:white; padding:10px; border-bottom:1px solid #eee;"><b>${d.id}</b><br><small>Pass: ${d.data().password}</small></div>`; });
         };
         window.addUser = async () => {
             const e = document.getElementById('adm-email').value;
@@ -179,8 +174,7 @@
                 const area = document.getElementById('msg-area'); area.innerHTML = "";
                 snap.forEach(d => {
                     const m = d.data();
-                    const div = document.createElement('div');
-                    div.className = `msg ${m.sender === me.email ? 'sent' : ''}`;
+                    const div = document.createElement('div'); div.className = `msg ${m.sender === me.email ? 'sent' : ''}`;
                     div.innerHTML = m.type === 'image' ? `<img src="${m.img}" style="width:200px; border-radius:5px;">` : `<div>${m.text}</div>`;
                     div.innerHTML += `<i class="fas fa-trash" style="font-size:10px; margin-left:10px; cursor:pointer;" onclick="window.delMsg('${d.id}')"></i>`;
                     area.appendChild(div);
@@ -205,15 +199,16 @@
         };
         window.delMsg = (id) => { if(confirm("Delete message?")) deleteDoc(doc(db, "messages", id)); };
 
-        // --- CALLING (FIXED PICKUP) ---
+        // --- NEW REAL-TIME CALLING (PICKUP FIX) ---
         window.startCall = async (type) => {
-            const callDoc = doc(db, "active_calls", peer.email); // Receiver's email is doc ID
+            // Hum receiver ke email waale document par offer bhej rahe hain
+            const callDoc = doc(db, "active_calls", peer.email); 
             document.getElementById('call-screen').style.display = 'flex';
             document.getElementById('c-name').innerText = peer.email;
             document.getElementById('c-img').src = `https://ui-avatars.com/api/?name=${peer.email}`;
-            document.getElementById('ringtone').play();
+            document.getElementById('ringtone').play().catch(()=>{});
 
-            pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+            pc = new RTCPeerConnection(config);
             localStream = await navigator.mediaDevices.getUserMedia({ video: type==='video', audio: true });
             localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
 
@@ -224,31 +219,48 @@
 
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
-            await setDoc(callDoc, { offer: {sdp: offer.sdp, type: offer.type}, caller: me.email, type, status: 'ringing' });
+            
+            // Send Offer to Database
+            await setDoc(callDoc, { 
+                offer: {sdp: offer.sdp, type: offer.type}, 
+                caller: me.email, 
+                type: type, 
+                status: 'ringing' 
+            });
 
+            // Listen for Answer
             onSnapshot(callDoc, s => {
-                if(s.data()?.status === 'accepted') {
-                    pc.setRemoteDescription(new RTCSessionDescription(s.data().answer));
+                const data = s.data();
+                if(data?.status === 'accepted' && data.answer) {
+                    pc.setRemoteDescription(new RTCSessionDescription(data.answer));
                     document.getElementById('ringtone').pause();
-                    if(type==='video') { document.getElementById('video-container').style.display='block'; document.getElementById('local-video').srcObject = localStream; }
+                    document.getElementById('call-screen').style.display = 'none';
+                    if(type==='video') { 
+                        document.getElementById('video-container').style.display='block'; 
+                        document.getElementById('local-video').srcObject = localStream; 
+                    }
                 }
+                if(data?.status === 'ended') window.endCall();
             });
         };
 
         function listenForCalls() {
-            // Hum us document ko dekh rahe hain jiska ID hamara email hai
+            // Hum apne khud ke email waale document ko watch kar rahe hain
             onSnapshot(doc(db, "active_calls", me.email), async (s) => {
                 const d = s.data();
                 if(d && d.status === 'ringing') {
+                    const ringtone = document.getElementById('ringtone');
                     document.getElementById('call-screen').style.display = 'flex';
                     document.getElementById('c-name').innerText = d.caller;
                     document.getElementById('c-img').src = `https://ui-avatars.com/api/?name=${d.caller}`;
-                    document.getElementById('ringtone').play().catch(()=>{});
+                    ringtone.play().catch(()=>{});
 
+                    // Pickup Button Action
                     document.getElementById('btn-pickup').onclick = async () => {
-                        document.getElementById('ringtone').pause();
+                        ringtone.pause();
                         document.getElementById('call-screen').style.display = 'none';
-                        pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+                        
+                        pc = new RTCPeerConnection(config);
                         localStream = await navigator.mediaDevices.getUserMedia({ video: d.type==='video', audio: true });
                         localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
 
@@ -260,8 +272,17 @@
                         await pc.setRemoteDescription(new RTCSessionDescription(d.offer));
                         const answer = await pc.createAnswer();
                         await pc.setLocalDescription(answer);
-                        await updateDoc(doc(db, "active_calls", me.email), { answer: {sdp: answer.sdp, type: answer.type}, status: 'accepted' });
-                        if(d.type==='video') { document.getElementById('video-container').style.display='block'; document.getElementById('local-video').srcObject = localStream; }
+                        
+                        // Database update taaki caller ko answer mile
+                        await updateDoc(doc(db, "active_calls", me.email), { 
+                            answer: {sdp: answer.sdp, type: answer.type}, 
+                            status: 'accepted' 
+                        });
+
+                        if(d.type==='video') { 
+                            document.getElementById('video-container').style.display='block'; 
+                            document.getElementById('local-video').srcObject = localStream; 
+                        }
                     };
                 }
             });
@@ -269,9 +290,11 @@
 
         window.endCall = async () => {
             if(localStream) localStream.getTracks().forEach(t => t.stop());
+            document.getElementById('call-screen').style.display = 'none';
+            document.getElementById('video-container').style.display = 'none';
+            document.getElementById('ringtone').pause();
             await deleteDoc(doc(db, "active_calls", me.email));
-            await deleteDoc(doc(db, "active_calls", peer?.email || "none"));
-            location.reload();
+            location.reload(); 
         };
 
         window.logout = () => signOut(auth).then(()=>location.reload());
