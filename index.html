@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WhatsApp Pro - Login Fixed</title>
+    <title>WhatsApp Pro - Calling & Delete Fixed</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
     <style>
@@ -21,14 +21,16 @@
         .received { align-self: flex-start; background: white; }
         .msg-meta { display: flex; align-items: center; justify-content: flex-end; font-size: 10px; color: #777; margin-top: 3px; }
         .blue-tick { color: var(--wa-blue); margin-left: 3px; }
+        /* Delete Icon Style */
+        .del-msg { font-size: 12px; color: #999; margin-left: 10px; cursor: pointer; visibility: hidden; }
+        .msg:hover .del-msg { visibility: visible; }
+        
         .user-item { display: flex; align-items: center; padding: 15px; background: white; border-bottom: 1px solid #eee; cursor: pointer; }
         .user-item img { width: 45px; height: 45px; border-radius: 50%; margin-right: 15px; }
         #admin-panel { position: fixed; inset: 0; background: #f0f2f5; z-index: 5000; display: flex; flex-direction: column; }
         .admin-section { background: white; margin: 10px; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .admin-input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 5px; }
         .btn-add { width: 100%; padding: 12px; background: var(--wa-teal); color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
-
-        /* Preview Style */
         #preview-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 10000; display: none; align-items: center; justify-content: center; }
         #preview-overlay img { max-width: 95%; max-height: 90%; border-radius: 5px; }
     </style>
@@ -83,7 +85,8 @@
                 <b id="chat-name">User</b>
                 <span id="chat-lastseen" class="last-seen">Offline</span>
             </div>
-            <i class="fas fa-video" id="video-icon" onclick="window.startCall()" style="margin-right:20px; cursor:pointer;"></i>
+            <i class="fas fa-phone" onclick="window.startCall('audio')" style="margin-right:25px; cursor:pointer;"></i>
+            <i class="fas fa-video" id="video-icon" onclick="window.startCall('video')" style="margin-right:10px; cursor:pointer;"></i>
         </div>
         <div id="msg-area" class="msg-area"></div>
         <div style="padding:10px; background:#f0f0f0; display:flex; align-items:center;">
@@ -112,10 +115,8 @@
         let me = null, peer = null;
         const ADMIN_EMAIL = "admin@gmail.com"; 
 
-        // Notification Sound
         const notifySound = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
 
-        // Image Preview Logic
         window.openPreview = (src) => {
             const overlay = document.getElementById('preview-overlay');
             document.getElementById('preview-img').src = src;
@@ -126,30 +127,23 @@
             const e = document.getElementById('l-email').value.trim();
             const p = document.getElementById('l-pass').value.trim();
             if(!e || !p) return alert("Email/Pass bhariye!");
-
             try {
                 const uSnap = await getDoc(doc(db, "users", e));
                 if(uSnap.exists()) {
                     const userData = uSnap.data();
                     if(userData.password === p) {
-                        try {
-                            await signInWithEmailAndPassword(auth, e, p);
-                        } catch (err) {
+                        try { await signInWithEmailAndPassword(auth, e, p); } catch (err) {
                             if(err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
                                 await createUserWithEmailAndPassword(auth, e, p);
                             } else { throw err; }
                         }
                     } else { alert("Galat Password!"); }
                 } else if(e === ADMIN_EMAIL) {
-                    try {
-                        await signInWithEmailAndPassword(auth, e, p);
-                    } catch {
+                    try { await signInWithEmailAndPassword(auth, e, p); } catch {
                         await createUserWithEmailAndPassword(auth, e, p);
                         await setDoc(doc(db, "users", e), { email: e, password: p, role: "admin" });
                     }
-                } else {
-                    alert("User database mein nahi mila! Pehle Admin panel se banayein.");
-                }
+                } else { alert("User database mein nahi mila!"); }
             } catch (error) { alert("Error: " + error.message); }
         };
 
@@ -160,31 +154,20 @@
                 document.getElementById('main-app').classList.remove('hidden');
                 if(me.email === ADMIN_EMAIL) document.getElementById('admin-icon').classList.remove('hidden');
                 setDoc(doc(db, "presence", me.email), { status: "online", last: serverTimestamp() }, { merge: true });
-                if(Notification.permission !== "granted") Notification.requestPermission();
                 loadList();
                 listenToGlobal();
-            } else {
-                document.getElementById('login-screen').classList.remove('hidden');
-                document.getElementById('main-app').classList.add('hidden');
             }
         });
 
-        // Background Message & Sound Listener
         function listenToGlobal() {
             const q = query(collection(db, "messages"), orderBy("time", "desc"), limit(1));
             onSnapshot(q, snap => {
                 snap.docChanges().forEach(change => {
                     if (change.type === "added") {
                         const m = change.doc.data();
-                        // Agar naya message kisi aur ne bheja hai aur main us chat mein nahi hoon
                         if (m.sender !== me.email && m.cid.includes(me.email)) {
                             if (!peer || peer.email !== m.sender) {
-                                notifySound.play().catch(()=>{}); // Ting sound
-                                if (Notification.permission === "granted") {
-                                    new Notification("Naya Message: " + m.sender, {
-                                        body: m.type === 'text' ? m.text : '📷 Photo'
-                                    });
-                                }
+                                notifySound.play().catch(()=>{});
                             }
                         }
                     }
@@ -227,14 +210,21 @@
                     if(!m.read && m.sender !== me.email) updateDoc(doc(db, "messages", d.id), { read: true });
                     const div = document.createElement('div');
                     div.className = `msg ${m.sender === me.email ? 'sent' : 'received'}`;
-                    // Added Preview Click
                     let body = m.type === "image" ? `<img src="${m.img}" style="width:100%; border-radius:5px; cursor:pointer;" onclick="window.openPreview('${m.img}')">` : `<div>${m.text}</div>`;
-                    div.innerHTML = `${body}<div class="msg-meta">${m.dt} ${m.sender === me.email ? `<i class="fas fa-check-double ${m.read ? 'blue-tick' : ''}"></i>` : ''}</div>`;
+                    
+                    // Added Delete Button (trash icon)
+                    const delHtml = m.sender === me.email ? `<i class="fas fa-trash del-msg" onclick="window.deleteMessage('${d.id}')"></i>` : '';
+                    
+                    div.innerHTML = `${body}<div class="msg-meta">${m.dt} ${m.sender === me.email ? `<i class="fas fa-check-double ${m.read ? 'blue-tick' : ''}"></i>` : ''} ${delHtml}</div>`;
                     area.appendChild(div);
                 });
                 area.scrollTop = area.scrollHeight;
             });
         }
+
+        window.deleteMessage = async (id) => {
+            if(confirm("Delete this message?")) await deleteDoc(doc(db, "messages", id));
+        };
 
         window.sendMsg = async () => {
             const inp = document.getElementById('m-input'); if(!inp.value) return;
@@ -259,6 +249,26 @@
             reader.readAsDataURL(file);
         };
 
+        // ZegoCloud Calling Logic
+        window.startCall = (mode) => {
+            const userID = me.email;
+            const userName = me.email;
+            const appID = 1452296766; // Replace with your Zego AppID
+            const serverSecret = "66f773957cc433e5456f9185a1a1f0f5"; // Replace with your ServerSecret
+            
+            const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, peer.email, userID, userName);
+            const zp = ZegoUIKitPrebuilt.create(kitToken);
+            
+            zp.addPlugins({ ZegoInvitationTypeVideoCall: 1, ZegoInvitationTypeVoiceCall: 0 });
+            
+            const callType = mode === 'video' ? 1 : 0;
+            zp.sendCallInvitation({
+                invitees: [{ userID: peer.email, userName: peer.email }],
+                isVideoCall: mode === 'video',
+                timeout: 60,
+            });
+        };
+
         window.showAdmin = async () => {
             document.getElementById('admin-panel').classList.remove('hidden');
             const snap = await getDocs(collection(db, "users"));
@@ -268,7 +278,6 @@
                 div.innerHTML += `<div style="background:white; padding:10px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center; border-radius:5px;">
                     <span>${u.email} <br> <small>Pass: ${u.password}</small></span>
                     <div>
-                        <i class="fas fa-key" style="color:blue; margin-right:15px; cursor:pointer;" onclick="window.changePass('${u.email}')"></i>
                         <i class="fas fa-trash" style="color:red; cursor:pointer;" onclick="window.delUser('${u.email}')"></i>
                     </div>
                 </div>`;
@@ -278,35 +287,14 @@
         window.createUser = async () => {
             const e = document.getElementById('new-user-email').value.trim();
             const p = document.getElementById('new-user-pass').value.trim();
-            if(!e || p.length < 6) return alert("Email daalein aur password kam se kam 6 char ka!");
-            
-            try {
-                await setDoc(doc(db, "users", e), { email: e, password: p });
-                try {
-                    await createUserWithEmailAndPassword(auth, e, p);
-                } catch (ae) { 
-                    if(ae.code !== 'auth/email-already-in-use') throw ae;
-                }
-                alert("User Created Automatically!");
-                window.showAdmin();
-            } catch (err) { alert(err.message); }
-        };
-
-        window.changePass = async (email) => {
-            const n = prompt("Naya Password daalo (Min 6 char):");
-            if(n && n.length >= 6) {
-                await updateDoc(doc(db, "users", email), { password: n });
-                alert("Password updated in Database!");
-                window.showAdmin();
-            } else { alert("Password chhota hai!"); }
+            if(!e || p.length < 6) return alert("Email/Pass bhariye!");
+            await setDoc(doc(db, "users", e), { email: e, password: p });
+            window.showAdmin();
         };
 
         window.delUser = async (id) => { if(confirm("Delete?")) await deleteDoc(doc(db, "users", id)); window.showAdmin(); };
         window.logout = () => { setDoc(doc(db, "presence", me.email), { status: "offline" }, { merge: true }); signOut(auth).then(()=>location.reload()); };
-        window.closeChat = () => { 
-            peer = null;
-            document.getElementById('chat-window').classList.remove('open');
-        };
+        window.closeChat = () => { peer = null; document.getElementById('chat-window').classList.remove('open'); };
     </script>
 </body>
 </html>
