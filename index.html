@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WhatsApp Pro - Dashboard Fixed</title>
+    <title>WhatsApp Pro - Admin Chat Enabled</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
     <style>
@@ -13,7 +13,7 @@
         .hidden { display: none !important; }
         header { background: var(--wa-teal); color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; }
         .last-seen { font-size: 11px; color: #cfd8dc; display: block; }
-        #chat-window { position: fixed; inset: 0; background: var(--wa-bg); z-index: 2000; display: flex; flex-direction: column; transform: translateX(100%); transition: 0.3s ease; }
+        #chat-window { position: fixed; inset: 0; background: var(--wa-bg); z-index: 6000; display: flex; flex-direction: column; transform: translateX(100%); transition: 0.3s ease; }
         #chat-window.open { transform: translateX(0); }
         .msg-area { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
         .msg { padding: 8px 12px; border-radius: 8px; margin-bottom: 5px; max-width: 80%; font-size: 15px; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
@@ -30,6 +30,7 @@
         .btn-add { width: 100%; padding: 12px; background: var(--wa-teal); color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
         #preview-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 10000; display: none; align-items: center; justify-content: center; }
         #preview-overlay img { max-width: 95%; max-height: 90%; border-radius: 5px; }
+        .admin-actions i { margin-left: 15px; font-size: 18px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -99,7 +100,6 @@
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, setDoc, deleteDoc, serverTimestamp, getDocs, getDoc, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // CONFIG
         const firebaseConfig = { 
             apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
             authDomain: "my-chat-project-4e376.firebaseapp.com", 
@@ -115,48 +115,41 @@
 
         const notifySound = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
 
-        // --- ZEGO CALLING UI SERVICE ---
+        // --- ZEGO CALLING ---
         window.initCallService = (userID, userName) => {
             const appID = 1452296766; 
             const serverSecret = "66f773957cc433e5456f9185a1a1f0f5";
             ZegoUIKitPrebuilt.init(appID, serverSecret, userID, userName, [ZegoUIKitPrebuiltCallInvitationService], {
-                ringtoneConfig: {
-                    incomingCallRingtone: 'https://cdn.pixabay.com/download/audio/2022/03/10/audio_784d84f092.mp3',
-                },
+                ringtoneConfig: { incomingCallRingtone: 'https://cdn.pixabay.com/download/audio/2022/03/10/audio_784d84f092.mp3' },
             });
         };
 
         window.startCall = (mode) => {
-            if(!peer) return alert("Pehle kisi chat ko open karein!");
+            if(!peer) return alert("Pehle Chat kholiye!");
             ZegoUIKitPrebuiltCallInvitationService.sendCallInvitation({
                 invitees: [{ userID: peer.email, userName: peer.email }],
                 isVideoCall: mode === 'video',
             });
         };
 
-        // --- LOGIN & AUTH ---
+        // --- AUTH ---
         window.doLogin = async () => {
             const e = document.getElementById('l-email').value.trim();
             const p = document.getElementById('l-pass').value.trim();
-            if(!e || !p) return alert("Email/Pass bhariye!");
+            if(!e || !p) return alert("Email/Pass likhein!");
             try {
                 const uSnap = await getDoc(doc(db, "users", e));
-                if(uSnap.exists()) {
-                    const userData = uSnap.data();
-                    if(userData.password === p) {
-                        try { await signInWithEmailAndPassword(auth, e, p); } catch (err) {
-                            if(err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-                                await createUserWithEmailAndPassword(auth, e, p);
-                            } else { throw err; }
-                        }
-                    } else { alert("Galat Password!"); }
+                if(uSnap.exists() && uSnap.data().password === p) {
+                    try { await signInWithEmailAndPassword(auth, e, p); } 
+                    catch { await createUserWithEmailAndPassword(auth, e, p); }
                 } else if(e === ADMIN_EMAIL) {
-                    try { await signInWithEmailAndPassword(auth, e, p); } catch {
+                    try { await signInWithEmailAndPassword(auth, e, p); }
+                    catch { 
                         await createUserWithEmailAndPassword(auth, e, p);
                         await setDoc(doc(db, "users", e), { email: e, password: p, role: "admin" });
                     }
-                } else { alert("User database mein nahi mila!"); }
-            } catch (error) { alert("Error: " + error.message); }
+                } else { alert("User nahi mila ya galat password!"); }
+            } catch (err) { alert(err.message); }
         };
 
         onAuthStateChanged(auth, u => {
@@ -166,38 +159,72 @@
                 document.getElementById('main-app').classList.remove('hidden');
                 if(me.email === ADMIN_EMAIL) document.getElementById('admin-icon').classList.remove('hidden');
                 setDoc(doc(db, "presence", me.email), { status: "online", last: serverTimestamp() }, { merge: true });
-                
-                // Start WhatsApp Call Service
                 window.initCallService(me.email, me.email);
-                
                 loadList();
                 listenToGlobal();
             }
         });
 
-        // --- MESSAGING & COMPRESSION ---
+        // --- ADMIN ACTIONS ---
+        window.showAdmin = async () => {
+            document.getElementById('admin-panel').classList.remove('hidden');
+            const snap = await getDocs(collection(db, "users"));
+            const div = document.getElementById('admin-user-list'); div.innerHTML = "";
+            snap.forEach(d => {
+                const u = d.data();
+                if(u.email === me.email) return;
+                const row = document.createElement('div');
+                row.style = "background:white; padding:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; border-radius:8px;";
+                row.innerHTML = `
+                    <span><b>${u.email}</b><br><small>Pass: ${u.password}</small></span>
+                    <div class="admin-actions">
+                        <i class="fas fa-comment-dots" style="color:var(--wa-green);" onclick="window.adminChat('${u.email}')"></i>
+                        <i class="fas fa-key" style="color:var(--wa-blue);" onclick="window.changePass('${u.email}')"></i>
+                        <i class="fas fa-trash" style="color:red;" onclick="window.delUser('${u.email}')"></i>
+                    </div>`;
+                div.appendChild(row);
+            });
+        };
+
+        window.adminChat = (email) => {
+            document.getElementById('admin-panel').classList.add('hidden');
+            window.openChat(email);
+        };
+
+        window.changePass = async (email) => {
+            const n = prompt("Naya Password (min 6):");
+            if(n && n.length >= 6) {
+                await updateDoc(doc(db, "users", email), { password: n });
+                alert("Updated!"); window.showAdmin();
+            }
+        };
+
+        window.createUser = async () => {
+            const e = document.getElementById('new-user-email').value.trim();
+            const p = document.getElementById('new-user-pass').value.trim();
+            if(e && p.length >= 6) {
+                await setDoc(doc(db, "users", e), { email: e, password: p });
+                alert("User Created!"); window.showAdmin();
+            }
+        };
+
+        window.delUser = async (id) => { if(confirm("Delete karein?")) { await deleteDoc(doc(db, "users", id)); window.showAdmin(); } };
+
+        // --- MESSAGING ---
         window.sendImage = (input) => {
             const file = input.files[0]; if(!file) return;
             const reader = new FileReader();
             reader.onload = (e) => {
-                const img = new Image();
-                img.src = e.target.result;
+                const img = new Image(); img.src = e.target.result;
                 img.onload = async () => {
                     const canvas = document.createElement('canvas');
-                    const MAX_SIZE = 800;
-                    let w = img.width, h = img.height;
-                    if(w > h) { if(w > MAX_SIZE) { h *= MAX_SIZE/w; w = MAX_SIZE; } }
-                    else { if(h > MAX_SIZE) { w *= MAX_SIZE/h; h = MAX_SIZE; } }
+                    const MAX = 800; let w = img.width, h = img.height;
+                    if(w > h) { if(w > MAX) { h *= MAX/w; w = MAX; } } else { if(h > MAX) { w *= MAX/h; h = MAX; } }
                     canvas.width = w; canvas.height = h;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, w, h);
-                    
-                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6); // Shrinks to < 200KB
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    const base64 = canvas.toDataURL('image/jpeg', 0.6);
                     const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
-                    await addDoc(collection(db, "messages"), {
-                        cid, sender: me.email, img: compressedBase64, type: "image", time: Date.now(), read: false,
-                        dt: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
-                    });
+                    await addDoc(collection(db, "messages"), { cid, sender: me.email, img: base64, type: "image", time: Date.now(), read: false, dt: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) });
                 };
             };
             reader.readAsDataURL(file);
@@ -206,46 +233,25 @@
         window.sendMsg = async () => {
             const inp = document.getElementById('m-input'); if(!inp.value) return;
             const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
-            await addDoc(collection(db, "messages"), {
-                cid, sender: me.email, text: inp.value, type: "text", time: Date.now(), read: false,
-                dt: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
-            });
+            await addDoc(collection(db, "messages"), { cid, sender: me.email, text: inp.value, type: "text", time: Date.now(), read: false, dt: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) });
             inp.value = "";
         };
 
-        // --- EXISTING UI LOGIC (LOAD LIST, CHAT WINDOW ETC) ---
-        function listenToGlobal() {
-            const q = query(collection(db, "messages"), orderBy("time", "desc"), limit(1));
-            onSnapshot(q, snap => {
-                snap.docChanges().forEach(change => {
-                    if (change.type === "added") {
-                        const m = change.doc.data();
-                        if (m.sender !== me.email && m.cid && m.cid.includes(me.email)) {
-                            if (!peer || peer.email !== m.sender) {
-                                notifySound.play().catch(()=>{});
-                            }
-                        }
-                    }
-                });
-            });
-        }
-
+        // --- UTILS ---
         function loadList() {
             onSnapshot(collection(db, "users"), snap => {
                 const list = document.getElementById('user-list'); list.innerHTML = "";
                 snap.forEach(d => {
-                    const u = d.data();
-                    if(u.email !== me.email) {
-                        const div = document.createElement('div'); div.className = "user-item";
-                        div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${u.email}"> <b>${u.email}</b>`;
-                        div.onclick = () => openChat(u.email);
-                        list.appendChild(div);
-                    }
+                    const u = d.data(); if(u.email === me.email) return;
+                    const div = document.createElement('div'); div.className = "user-item";
+                    div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${u.email}"> <b>${u.email}</b>`;
+                    div.onclick = () => window.openChat(u.email);
+                    list.appendChild(div);
                 });
             });
         }
 
-        function openChat(email) {
+        window.openChat = (email) => {
             peer = {email}; 
             document.getElementById('chat-window').classList.add('open');
             document.getElementById('chat-name').innerText = email;
@@ -253,7 +259,7 @@
                 document.getElementById('chat-lastseen').innerText = d.data()?.status === "online" ? "Online" : "Offline";
             });
             listen();
-        }
+        };
 
         function listen() {
             if(!peer) return;
@@ -266,61 +272,33 @@
                     if(!m.read && m.sender !== me.email) updateDoc(doc(db, "messages", d.id), { read: true });
                     const div = document.createElement('div');
                     div.className = `msg ${m.sender === me.email ? 'sent' : 'received'}`;
-                    let body = m.type === "image" ? `<img src="${m.img}" style="width:100%; border-radius:5px; cursor:pointer;" onclick="window.openPreview('${m.img}')">` : `<div>${m.text}</div>`;
-                    const delHtml = m.sender === me.email ? `<i class="fas fa-trash del-msg" onclick="window.deleteMessage('${d.id}')"></i>` : '';
-                    div.innerHTML = `${body}<div class="msg-meta">${m.dt} ${m.sender === me.email ? `<i class="fas fa-check-double ${m.read ? 'blue-tick' : ''}"></i>` : ''} ${delHtml}</div>`;
+                    let body = m.type === "image" ? `<img src="${m.img}" style="width:100%; border-radius:5px;" onclick="window.openPreview('${m.img}')">` : `<div>${m.text}</div>`;
+                    const del = m.sender === me.email ? `<i class="fas fa-trash del-msg" onclick="window.deleteMessage('${d.id}')"></i>` : '';
+                    div.innerHTML = `${body}<div class="msg-meta">${m.dt} ${m.sender === me.email ? `<i class="fas fa-check-double ${m.read ? 'blue-tick' : ''}"></i>` : ''} ${del}</div>`;
                     area.appendChild(div);
                 });
                 area.scrollTop = area.scrollHeight;
             });
         }
 
-        window.openPreview = (src) => {
-            const overlay = document.getElementById('preview-overlay');
-            document.getElementById('preview-img').src = src;
-            overlay.style.display = 'flex';
-        };
-
-        window.deleteMessage = async (id) => {
-            if(confirm("Message delete karein?")) await deleteDoc(doc(db, "messages", id));
-        };
-
-        window.showAdmin = async () => {
-            document.getElementById('admin-panel').classList.remove('hidden');
-            const snap = await getDocs(collection(db, "users"));
-            const div = document.getElementById('admin-user-list'); div.innerHTML = "";
-            snap.forEach(d => {
-                const u = d.data();
-                div.innerHTML += `<div style="background:white; padding:10px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center; border-radius:5px;">
-                    <span>${u.email} <br> <small>Pass: ${u.password}</small></span>
-                    <div>
-                        <i class="fas fa-key" style="color:blue; margin-right:20px; cursor:pointer;" onclick="window.changePass('${u.email}')"></i>
-                        <i class="fas fa-trash" style="color:red; cursor:pointer;" onclick="window.delUser('${u.email}')"></i>
-                    </div>
-                </div>`;
-            });
-        };
-
-        window.changePass = async (email) => {
-            const n = prompt("Naya Password daalo (Min 6 char):");
-            if(n && n.length >= 6) {
-                await updateDoc(doc(db, "users", email), { password: n });
-                alert("Password update ho gaya!");
-                window.showAdmin();
-            } else if(n) { alert("Password chhota hai!"); }
-        };
-
-        window.createUser = async () => {
-            const e = document.getElementById('new-user-email').value.trim();
-            const p = document.getElementById('new-user-pass').value.trim();
-            if(!e || p.length < 6) return alert("Email/Pass bhariye!");
-            await setDoc(doc(db, "users", e), { email: e, password: p });
-            window.showAdmin();
-        };
-
-        window.delUser = async (id) => { if(confirm("User delete karein?")) await deleteDoc(doc(db, "users", id)); window.showAdmin(); };
-        window.logout = () => { if(me) setDoc(doc(db, "presence", me.email), { status: "offline" }, { merge: true }); signOut(auth).then(()=>location.reload()); };
+        window.deleteMessage = async (id) => { if(confirm("Delete?")) await deleteDoc(doc(db, "messages", id)); };
         window.closeChat = () => { peer = null; document.getElementById('chat-window').classList.remove('open'); };
+        window.logout = () => { if(me) setDoc(doc(db, "presence", me.email), { status: "offline" }, { merge: true }); signOut(auth).then(()=>location.reload()); };
+        window.openPreview = (src) => { document.getElementById('preview-img').src = src; document.getElementById('preview-overlay').style.display = 'flex'; };
+
+        function listenToGlobal() {
+            const q = query(collection(db, "messages"), orderBy("time", "desc"), limit(1));
+            onSnapshot(q, snap => {
+                snap.docChanges().forEach(change => {
+                    if (change.type === "added") {
+                        const m = change.doc.data();
+                        if (m.sender !== me.email && m.cid?.includes(me.email)) {
+                            if (!peer || peer.email !== m.sender) notifySound.play().catch(()=>{});
+                        }
+                    }
+                });
+            });
+        }
     </script>
 </body>
 </html>
