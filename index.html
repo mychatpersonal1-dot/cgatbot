@@ -1,38 +1,37 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StudyBook Final Fix</title>
-    <script src="https://unpkg.com/zego-zim-web@2.12.0/index.js"></script>
-    <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
+    <title>StudyBook Direct Call</title>
     <style>
-        body { font-family: sans-serif; background: #ece5dd; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        #app-container { background: white; width: 350px; padding: 20px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; }
-        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; }
-        button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 10px; }
-        .btn-call { background: #25d366; color: white; margin-bottom: 5px; }
-        .hidden { display: none; }
+        body { font-family: sans-serif; margin: 0; background: #f0f2f5; text-align: center; }
+        #root { width: 100vw; height: 100vh; position: fixed; top: 0; left: 0; background: white; z-index: 100; }
+        .hidden { display: none !important; }
+        .main-ui { padding: 50px; }
+        .btn { padding: 15px 30px; font-size: 18px; cursor: pointer; border-radius: 10px; border: none; color: white; background: #075e54; }
     </style>
 </head>
 <body>
 
-    <div id="app-container">
+    <div id="root" class="hidden"></div>
+
+    <div id="home-ui" class="main-ui">
         <div id="login-box">
-            <h2 style="color: #075e54;">StudyBook Chat</h2>
-            <input type="email" id="l-email" placeholder="Email (admin or bookb)">
-            <input type="password" id="l-pass" placeholder="Password">
-            <button onclick="doLogin()" style="background: #075e54; color: white;">LOGIN</button>
+            <h2>StudyBook Login</h2>
+            <input type="email" id="email" placeholder="Email" style="padding:10px; width:250px;"><br><br>
+            <input type="password" id="pass" placeholder="Password" style="padding:10px; width:250px;"><br><br>
+            <button class="btn" onclick="login()">Login</button>
         </div>
 
         <div id="call-box" class="hidden">
-            <h3 id="user-tag">Welcome</h3>
-            <div id="status-tag" style="color: orange; font-size: 12px; margin-bottom: 10px;">Zego Connecting...</div>
-            <button class="btn-call" onclick="makeCall('audio')">📞 Voice Call</button>
-            <button class="btn-call" style="background: #007bff;" onclick="makeCall('video')">📹 Video Call</button>
-            <button onclick="location.reload()" style="background: #f44336; color: white;">Logout</button>
+            <h2 id="welcome">Welcome</h2>
+            <p>Admin aur BookB ke liye direct call:</p>
+            <button class="btn" onclick="startCall()">📞 Join Video Call</button>
+            <br><br>
+            <button onclick="location.reload()">Logout</button>
         </div>
     </div>
+
+    <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -47,36 +46,13 @@
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-        let me = null, zp = null;
+        let me = null;
 
-        // --- ZEGO INIT (FORCE START) ---
-        async function startZego(userId) {
-            try {
-                const appID = 1452296766; 
-                const serverSecret = "66f773957cc433e5456f9185a1a1f0f5";
-                const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, userId, userId, userId);
-                
-                zp = ZegoUIKitPrebuilt.create(kitToken);
-                zp.addPlugins({ ZIM: window.ZIM });
-                
-                document.getElementById('status-tag').innerText = "System Ready ✅";
-                document.getElementById('status-tag').style.color = "green";
-                console.log("Zego Ready");
-            } catch (e) {
-                console.error(e);
-                setTimeout(() => startZego(userId), 2000);
-            }
-        }
-
-        // --- LOGIN ---
-        window.doLogin = async () => {
-            const e = document.getElementById('l-email').value.trim();
-            const p = document.getElementById('l-pass').value.trim();
-            try {
-                await signInWithEmailAndPassword(auth, e, p);
-            } catch {
-                await createUserWithEmailAndPassword(auth, e, p);
-            }
+        window.login = async () => {
+            const e = document.getElementById('email').value;
+            const p = document.getElementById('pass').value;
+            try { await signInWithEmailAndPassword(auth, e, p); }
+            catch { await createUserWithEmailAndPassword(auth, e, p); }
         };
 
         onAuthStateChanged(auth, u => {
@@ -84,25 +60,37 @@
                 me = u;
                 document.getElementById('login-box').classList.add('hidden');
                 document.getElementById('call-box').classList.remove('hidden');
-                document.getElementById('user-tag').innerText = me.email;
-                startZego(me.email);
+                document.getElementById('welcome').innerText = "Logged in as: " + me.email;
             }
         });
 
-        // --- CALL ---
-        window.makeCall = (type) => {
-            if (!zp) return alert("Bhai, Zego abhi bhi connect ho raha hai. 2 second ruko!");
+        // --- ZEGO ROOM LOGIC ---
+        window.startCall = function () {
+            // Room ID fix kar diya hai taaki dono ek hi jagah milein
+            const roomID = "studybook_main_room"; 
+            const userID = me.email; 
+            const userName = me.email;
+            
+            // Naya AppID aur Secret jo aapne diya
+            const appID = 1196176620;
+            const serverSecret = "a5137871a508226e73c23d027ab37107";
+            
+            const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, roomID, userID, userName);
+            const zp = ZegoUIKitPrebuilt.create(kitToken);
 
-            // Automatic Target Selection
-            let target = (me.email === "admin@gmail.com") ? "bookb@gmail.com" : "admin@gmail.com";
+            document.getElementById('root').classList.remove('hidden');
 
-            zp.sendCallInvitation({
-                invitees: [{ userID: target, userName: target }],
-                isVideoCall: type === 'video',
-                timeout: 60,
-            }).then(res => {
-                if(res.errorInvitees?.length > 0) alert("Dusra banda offline hai!");
-            }).catch(err => alert("Call Error: " + err.message));
+            zp.joinRoom({
+                container: document.querySelector("#root"),
+                scenario: {
+                    mode: ZegoUIKitPrebuilt.VideoConference,
+                },
+                maxUsers: 2,
+                showScreenSharingButton: true,
+                onLeaveRoom: () => {
+                    location.reload(); // Call khatam hone par wapas aao
+                }
+            });
         };
     </script>
 </body>
