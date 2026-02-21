@@ -1,116 +1,260 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StudyBook Login Fix</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    
-    <style>
-        :root { --wa-teal: #075E54; --wa-green: #25D366; }
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: sans-serif; }
-        body { background: var(--wa-teal); height: 100vh; display: flex; align-items: center; justify-content: center; }
-        
-        .login-box { background: white; padding: 30px; border-radius: 10px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
-        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; }
-        button { width: 100%; padding: 12px; background: var(--wa-green); color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
-        
-        .hidden { display: none !important; }
-        #app-screen { position: fixed; inset: 0; background: #eee; z-index: 100; }
-        header { background: var(--wa-teal); color: white; padding: 15px; display: flex; justify-content: space-between; }
-        .user-item { padding: 15px; background: white; border-bottom: 1px solid #ddd; cursor: pointer; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhatsApp Pro - Full WebRTC</title>
+
+<style>
+body{margin:0;font-family:sans-serif;background:#ece5dd}
+header{background:#075E54;color:white;padding:12px;display:flex;justify-content:space-between}
+#users div{padding:15px;background:white;border-bottom:1px solid #ddd;cursor:pointer}
+#chat{position:fixed;inset:0;background:#ece5dd;display:none;flex-direction:column}
+.msg{padding:8px 12px;margin:5px;border-radius:8px;max-width:70%}
+.sent{background:#dcf8c6;margin-left:auto}
+.recv{background:white}
+#callUI{position:fixed;inset:0;background:black;display:none;flex-direction:column;z-index:9999}
+video{background:black}
+</style>
 </head>
+
 <body>
 
-    <div id="login-screen" class="login-box">
-        <h2>StudyBook</h2>
-        <input type="email" id="email" placeholder="Email">
-        <input type="password" id="pass" placeholder="Password">
-        <button id="loginBtn">LOGIN / REGISTER</button>
-        <p id="msg" style="margin-top:10px; font-size:12px; color:red;"></p>
-    </div>
+<div id="login">
+<input id="email" placeholder="Email"><br><br>
+<input id="pass" placeholder="Password" type="password"><br><br>
+<button onclick="login()">Login</button>
+</div>
 
-    <div id="app-screen" class="hidden">
-        <header>
-            <b>WhatsApp Pro</b>
-            <i class="fas fa-sign-out-alt" id="logoutBtn"></i>
-        </header>
-        <div id="user-list"></div>
-    </div>
+<div id="main" style="display:none">
+<header>
+<b>WhatsApp</b>
+<button onclick="logout()">Logout</button>
+</header>
+<div id="users"></div>
+</div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+<div id="chat">
+<header>
+<span id="peerName"></span>
+<div>
+<button onclick="startCall('audio')">📞</button>
+<button onclick="startCall('video')">📹</button>
+<button onclick="closeChat()">❌</button>
+</div>
+</header>
+<div id="messages" style="flex:1;overflow:auto;padding:10px"></div>
+<div style="display:flex;padding:10px">
+<input id="msgInput" style="flex:1">
+<button onclick="sendMsg()">Send</button>
+</div>
+</div>
 
-        const firebaseConfig = { 
-            apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
-            authDomain: "my-chat-project-4e376.firebaseapp.com", 
-            projectId: "my-chat-project-4e376", 
-            appId: "1:264696350288:web:8c0367e6dce7c5f5517355"
-        };
+<div id="callUI">
+<video id="remoteVideo" autoplay playsinline style="width:100%;flex:1"></video>
+<video id="localVideo" autoplay playsinline muted style="width:120px;position:absolute;bottom:20px;right:20px"></video>
+<button onclick="endCall()" style="padding:15px;background:red;color:white">End Call</button>
+</div>
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+<script type="module">
 
-        // --- LOGIN LOGIC ---
-        document.getElementById('loginBtn').addEventListener('click', async () => {
-            const email = document.getElementById('email').value;
-            const pass = document.getElementById('pass').value;
-            const msg = document.getElementById('msg');
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, collection, addDoc, doc, setDoc, getDocs, onSnapshot, query, where, orderBy, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-            if(!email || !pass) { alert("Bhai fields bharo!"); return; }
+const firebaseConfig={
+apiKey:"AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs",
+authDomain:"my-chat-project-4e376.firebaseapp.com",
+projectId:"my-chat-project-4e376",
+appId:"1:264696350288:web:8c0367e6dce7c5f5517355"
+};
 
-            try {
-                // Try Login
-                await signInWithEmailAndPassword(auth, email, pass);
-            } catch (err) {
-                // If user doesn't exist, Register
-                try {
-                    await createUserWithEmailAndPassword(auth, email, pass);
-                } catch (regErr) {
-                    msg.innerText = "Error: " + regErr.message;
-                }
-            }
-        });
+const app=initializeApp(firebaseConfig);
+const auth=getAuth(app);
+const db=getFirestore(app);
 
-        // --- AUTH STATE ---
-        onAuthStateChanged(auth, async (user) => {
-            if(user) {
-                // User is logged in
-                await setDoc(doc(db, "users", user.uid), { email: user.email, uid: user.uid }, { merge: true });
-                document.getElementById('login-screen').classList.add('hidden');
-                document.getElementById('app-screen').classList.remove('hidden');
-                loadUsers(user.email);
-            } else {
-                // User is logged out
-                document.getElementById('login-screen').classList.remove('hidden');
-                document.getElementById('app-screen').classList.add('hidden');
-            }
-        });
+let me,peer;
+let pc,localStream,remoteStream,callDoc;
 
-        // --- LOAD USERS ---
-        function loadUsers(myEmail) {
-            onSnapshot(collection(db, "users"), (snap) => {
-                const list = document.getElementById('user-list');
-                list.innerHTML = "";
-                snap.forEach(d => {
-                    if(d.data().email !== myEmail) {
-                        const div = document.createElement('div');
-                        div.className = "user-item";
-                        div.innerText = d.data().email;
-                        div.onclick = () => alert("Call logic yahan aayega!");
-                        list.appendChild(div);
-                    }
-                });
-            });
-        }
+const servers={iceServers:[{urls:"stun:stun.l.google.com:19302"}]};
 
-        // --- LOGOUT ---
-        document.getElementById('logoutBtn').onclick = () => signOut(auth);
+window.login=async()=>{
+let e=email.value,p=pass.value;
+try{
+await signInWithEmailAndPassword(auth,e,p);
+}catch{
+await createUserWithEmailAndPassword(auth,e,p);
+await setDoc(doc(db,"users",e),{email:e});
+}
+}
 
-    </script>
+onAuthStateChanged(auth,u=>{
+if(u){
+me=u;
+login.style.display="none";
+main.style.display="block";
+loadUsers();
+listenIncomingCalls();
+}
+});
+
+window.logout=()=>signOut(auth);
+
+function loadUsers(){
+onSnapshot(collection(db,"users"),snap=>{
+users.innerHTML="";
+snap.forEach(d=>{
+if(d.id!==me.email){
+let div=document.createElement("div");
+div.innerText=d.id;
+div.onclick=()=>openChat(d.id);
+users.appendChild(div);
+}
+});
+});
+}
+
+function openChat(email){
+peer=email;
+peerName.innerText=email;
+chat.style.display="flex";
+listenMessages();
+}
+
+window.closeChat=()=>chat.style.display="none";
+
+function listenMessages(){
+let cid=me.email<peer?me.email+"_"+peer:peer+"_"+me.email;
+let q=query(collection(db,"messages"),where("cid","==",cid),orderBy("time"));
+onSnapshot(q,snap=>{
+messages.innerHTML="";
+snap.forEach(d=>{
+let m=d.data();
+let div=document.createElement("div");
+div.className="msg "+(m.sender===me.email?"sent":"recv");
+div.innerText=m.text;
+messages.appendChild(div);
+});
+});
+}
+
+window.sendMsg=async()=>{
+let cid=me.email<peer?me.email+"_"+peer:peer+"_"+me.email;
+await addDoc(collection(db,"messages"),{
+cid,sender:me.email,text:msgInput.value,time:Date.now()
+});
+msgInput.value="";
+};
+
+//////////////////////
+// WEBRTC CALLING
+//////////////////////
+
+window.startCall=async(mode)=>{
+
+callDoc=doc(collection(db,"calls"));
+pc=new RTCPeerConnection(servers);
+
+localStream=await navigator.mediaDevices.getUserMedia({
+video:mode==="video",
+audio:true
+});
+
+remoteStream=new MediaStream();
+
+localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+
+pc.ontrack=e=>{
+e.streams[0].getTracks().forEach(t=>remoteStream.addTrack(t));
+};
+
+localVideo.srcObject=localStream;
+remoteVideo.srcObject=remoteStream;
+callUI.style.display="flex";
+
+pc.onicecandidate=e=>{
+if(e.candidate)addDoc(collection(callDoc,"offerCandidates"),e.candidate.toJSON());
+};
+
+let offer=await pc.createOffer();
+await pc.setLocalDescription(offer);
+
+await setDoc(callDoc,{
+offer,
+from:me.email,
+to:peer
+});
+
+onSnapshot(callDoc,s=>{
+let data=s.data();
+if(data?.answer&&!pc.currentRemoteDescription){
+pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+}
+});
+
+onSnapshot(collection(callDoc,"answerCandidates"),snap=>{
+snap.docChanges().forEach(c=>{
+if(c.type==="added"){
+pc.addIceCandidate(new RTCIceCandidate(c.doc.data()));
+}
+});
+});
+};
+
+function listenIncomingCalls(){
+onSnapshot(collection(db,"calls"),snap=>{
+snap.docChanges().forEach(async c=>{
+if(c.type==="added"){
+let data=c.doc.data();
+if(data.to===me.email){
+if(!confirm("Incoming Call Accept?"))return;
+
+callDoc=doc(db,"calls",c.doc.id);
+pc=new RTCPeerConnection(servers);
+
+localStream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+remoteStream=new MediaStream();
+
+localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+
+pc.ontrack=e=>{
+e.streams[0].getTracks().forEach(t=>remoteStream.addTrack(t));
+};
+
+localVideo.srcObject=localStream;
+remoteVideo.srcObject=remoteStream;
+callUI.style.display="flex";
+
+await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+
+let answer=await pc.createAnswer();
+await pc.setLocalDescription(answer);
+
+await updateDoc(callDoc,{answer});
+
+pc.onicecandidate=e=>{
+if(e.candidate)addDoc(collection(callDoc,"answerCandidates"),e.candidate.toJSON());
+};
+
+onSnapshot(collection(callDoc,"offerCandidates"),snap2=>{
+snap2.docChanges().forEach(c2=>{
+if(c2.type==="added"){
+pc.addIceCandidate(new RTCIceCandidate(c2.doc.data()));
+}
+});
+});
+}
+});
+});
+}
+
+window.endCall=async()=>{
+if(pc)pc.close();
+if(localStream)localStream.getTracks().forEach(t=>t.stop());
+callUI.style.display="none";
+if(callDoc)await deleteDoc(callDoc);
+};
+
+</script>
 </body>
 </html>
