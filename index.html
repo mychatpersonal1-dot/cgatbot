@@ -135,27 +135,25 @@
     }
 
     // Apply call buttons with a small delay to ensure DOM is ready
-    function setupCallButtons() {
-        if (!zp || !peer) {
-            console.log("Zego or Peer not ready, retrying...");
-            setTimeout(setupCallButtons, 1000);
-            return;
-        }
+    // Is function ko replace kijiye
+function setupCallButtons() {
+    const audioBtn = document.getElementById('audio-call-btn');
+    const videoBtn = document.getElementById('video-call-btn');
 
-        const audioBtn = document.getElementById('audio-call-btn');
-        const videoBtn = document.getElementById('video-call-btn');
-
-        if(audioBtn && videoBtn) {
-            zp.bindAudioCallInvitation(audioBtn, {
-                invitees: [{ userID: peer.email, userName: peer.email }]
-            });
-            zp.bindVideoCallInvitation(videoBtn, {
-                invitees: [{ userID: peer.email, userName: peer.email }]
-            });
-            console.log("Call buttons bound to peer:", peer.email);
-        }
+    if (zp && peer && audioBtn && videoBtn) {
+        // Zego system ko bind kar rahe hain
+        zp.bindAudioCallInvitation(audioBtn, {
+            invitees: [{ userID: peer.email, userName: peer.email }],
+        });
+        zp.bindVideoCallInvitation(videoBtn, {
+            invitees: [{ userID: peer.email, userName: peer.email }],
+        });
+        console.log("SUCCESS: Buttons are now active for " + peer.email);
+    } else {
+        console.log("RETRYING: Waiting for Zego/Peer/Buttons...");
+        setTimeout(setupCallButtons, 1000); // Har 1 second mein check karega
     }
-
+}
     // --- AUTH LOGIC ---
     window.doLogin = async () => {
         const e = document.getElementById('l-email').value.trim();
@@ -267,5 +265,6 @@
 </script>
 </body>
 </html>
+
 
 
