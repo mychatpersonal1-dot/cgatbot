@@ -74,7 +74,7 @@
     const db = getFirestore(app);
     let me = null, currentPeerEmail = null, zp = null;
 
-    // --- ZEGO SYSTEM (RE-FIXED) ---
+    // --- ZEGO SYSTEM (INITIALIZATION) ---
     async function initZego(userId) {
         if (!window.ZIM || !window.ZegoUIKitPrebuilt) {
             setTimeout(() => initZego(userId), 1000);
@@ -83,24 +83,28 @@
         try {
             const appID = 1452296766; 
             const serverSecret = "66f773957cc433e5456f9185a1a1f0f5";
-            // Zego Dashboard par UserID string honi chahiye, email ek perfect string hai
+            
+            // Generate Kit Token
             const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, userId, userId, userId);
             
             zp = ZegoUIKitPrebuilt.create(kitToken);
+            
+            // Important: Plugins load karna zaroori hai calling UI ke liye
             zp.addPlugins({ ZIM: window.ZIM }); 
+            
             console.log("ZEGO READY ✅ For:", userId);
         } catch (err) {
             console.error("Zego Init Error:", err);
         }
     }
 
-    // --- MANUAL CALLING (CALLEES ERROR FIXED) ---
+    // --- CALLING FUNCTION ---
     window.makeCall = (type) => {
-        // Validation check
+        // Validation: Check if system is ready
         if (!zp) return alert("Zego is not ready. Refresh and try again.");
-        if (!currentPeerEmail) return alert("Pehle kisi user ka chat kholiye!");
+        if (!currentPeerEmail) return alert("Pehle kisi user ka chat kholiye tabhi call hogi!");
 
-        console.log("Calling to:", currentPeerEmail);
+        console.log("Attempting " + type + " call to:", currentPeerEmail);
 
         zp.sendCallInvitation({
             invitees: [{ userID: currentPeerEmail, userName: currentPeerEmail }],
@@ -109,7 +113,7 @@
         }).then(res => {
             console.log("Call Response:", res);
             if (res.errorInvitees && res.errorInvitees.length > 0) {
-                alert("User offline hai.");
+                alert("User offline hai ya call nahi utha raha.");
             }
         }).catch(err => {
             console.error("Call Invitation Error:", err);
@@ -117,11 +121,11 @@
         });
     };
 
-    // --- AUTH ---
+    // --- AUTH LOGIC ---
     window.doLogin = async () => {
         const e = document.getElementById('l-email').value.trim();
         const p = document.getElementById('l-pass').value.trim();
-        if(!e || !p) return alert("Enter details");
+        if(!e || !p) return alert("Please enter email and password");
         try {
             await signInWithEmailAndPassword(auth, e, p);
         } catch {
@@ -135,11 +139,12 @@
             me = u;
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('main-app').classList.remove('hidden');
-            initZego(me.email);
+            initZego(me.email); // User login hote hi Zego init hoga
             loadList();
         }
     });
 
+    // --- USER LIST ---
     function loadList() {
         onSnapshot(collection(db, "users"), snap => {
             const list = document.getElementById('user-list'); list.innerHTML = "";
@@ -155,9 +160,9 @@
         });
     }
 
-    // --- CHAT LOGIC (IMPORTANT FIX) ---
+    // --- CHAT WINDOW LOGIC ---
     window.openChat = (email) => {
-        currentPeerEmail = email; // Yahan email set ho rahi hai jo calling mein use hogi
+        currentPeerEmail = email; // Calling ke liye email set ho gaya
         document.getElementById('chat-window').classList.add('open');
         document.getElementById('chat-name').innerText = email;
         listenMessages(email);
@@ -180,6 +185,7 @@
         });
     }
 
+    // --- MESSAGE SENDING ---
     window.sendMsg = async () => {
         const inp = document.getElementById('m-input');
         if(!inp.value.trim() || !currentPeerEmail) return;
@@ -192,11 +198,12 @@
 
     window.closeChat = () => {
         document.getElementById('chat-window').classList.remove('open');
-        currentPeerEmail = null; // Chat band toh target null
+        currentPeerEmail = null; // Chat band toh call destination bhi hat jayegi
     };
     
     window.logout = () => signOut(auth).then(()=>location.reload());
 </script>
 </body>
 </html>
+
 
