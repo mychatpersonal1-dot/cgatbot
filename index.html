@@ -3,64 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WhatsApp Pro - Phone Optimized</title>
+    <title>WhatsApp Pro - Stable Call</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
-    
     <style>
         :root { --wa-teal: #075E54; --wa-green: #25D366; --wa-bg: #efe7de; }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         
-        /* Full Body Fix for Mobile */
-        html, body { 
-            height: 100%; 
-            width: 100%; 
-            overflow: hidden; 
-            background: #dadbd3; 
-        }
+        /* Body fix for mobile address bar */
+        html, body { height: 100%; width: 100%; overflow: hidden; background: #dadbd3; position: fixed; }
 
         .hidden { display: none !important; }
         header { background: var(--wa-teal); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
 
-        /* Main App UI */
         #main-app { height: 100%; display: flex; flex-direction: column; }
         #user-list { flex: 1; overflow-y: auto; background: white; }
-        .user-item { display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #eee; }
+        .user-item { display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #eee; cursor: pointer; }
         .user-item img { width: 45px; height: 45px; border-radius: 50%; margin-right: 15px; }
 
-        /* Chat Window Mobile */
-        #chat-window { 
-            position: fixed; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%; 
-            background: var(--wa-bg); 
-            z-index: 2000; 
-            display: flex; 
-            flex-direction: column; 
-            transform: translateX(100%); 
-            transition: 0.3s ease; 
-        }
+        #chat-window { position: fixed; inset: 0; background: var(--wa-bg); z-index: 2000; display: flex; flex-direction: column; transform: translateX(100%); transition: 0.3s ease; }
         #chat-window.open { transform: translateX(0); }
         .msg-area { flex: 1; overflow-y: auto; padding: 12px; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
+        .msg { padding: 8px 12px; border-radius: 8px; margin-bottom: 5px; max-width: 80%; background: white; align-self: flex-start; }
+        .sent { align-self: flex-end; background: #dcf8c6; }
 
-        /* ZEGO PHONE CONTAINER FIX */
+        /* ZEGO ROOT - Phone Screen Fix */
         #zego-root { 
             position: fixed; 
             top: 0; 
             left: 0; 
-            width: 100vw !important; 
-            height: 100vh !important; 
-            height: -webkit-fill-available; /* Phone browser height fix */
+            width: 100vw; 
+            height: 100vh; 
+            height: 100dvh; /* Dynamic viewport height for mobile */
             background: black; 
             z-index: 9999; 
         }
 
-        /* Login Screen */
         #login-screen { position: fixed; inset: 0; background: var(--wa-teal); z-index: 10000; display: flex; align-items: center; justify-content: center; }
         .login-box { background: white; padding: 30px; border-radius: 10px; width: 85%; }
-        input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 5px; outline: none; }
+        input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 5px; }
     </style>
 </head>
 <body>
@@ -83,10 +64,8 @@
 
     <div id="chat-window">
         <header>
-            <div style="display:flex; align-items:center;">
-                <i class="fas fa-arrow-left" onclick="window.closeChat()"></i>
-                <b id="chat-name" style="margin-left:15px;">User</b>
-            </div>
+            <i class="fas fa-arrow-left" onclick="window.closeChat()"></i>
+            <b id="chat-name">User</b>
             <div>
                 <i class="fas fa-phone" onclick="window.startCall('audio')" style="margin-right:20px;"></i>
                 <i class="fas fa-video" onclick="window.startCall('video')"></i>
@@ -94,7 +73,7 @@
         </header>
         <div id="msg-area" class="msg-area"></div>
         <div style="padding:10px; background:#f0f0f0; display:flex;">
-            <input type="text" id="m-input" style="border-radius:20px; margin-bottom:0;">
+            <input type="text" id="m-input" style="flex:1; margin-bottom:0; border-radius:20px;">
             <button onclick="window.sendMsg()" style="border:none; background:none; margin-left:10px;"><i class="fas fa-paper-plane" style="color:var(--wa-teal); font-size:22px;"></i></button>
         </div>
     </div>
@@ -102,7 +81,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = { 
             apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
@@ -139,7 +118,7 @@
                     const u = d.data();
                     if(u.email !== me.email) {
                         const div = document.createElement('div'); div.className = "user-item";
-                        div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${u.email}"><b>${u.email}</b>`;
+                        div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${u.email}"> <b>${u.email}</b>`;
                         div.onclick = () => { peer = {email: u.email}; document.getElementById('chat-window').classList.add('open'); document.getElementById('chat-name').innerText = u.email; listen(); };
                         list.appendChild(div);
                     }
@@ -169,7 +148,7 @@
             document.getElementById('m-input').value = "";
         };
 
-        // --- ZEGO FULL PHONE HEIGHT LOGIC ---
+        // --- STABLE START CALL ---
         window.startCall = function(mode) {
             if(!peer) return;
             const zegoDiv = document.getElementById('zego-root');
@@ -188,8 +167,6 @@
                 container: zegoDiv,
                 scenario: { mode: ZegoUIKitPrebuilt.OneONoneCall },
                 showPreJoinView: false,
-                turnOnCameraWhenJoining: true,
-                showMyCameraSelfViewInUpperRightCorner: true, // Phone style
                 onLeaveRoom: () => {
                     zegoDiv.classList.add('hidden');
                     window.location.reload(); 
