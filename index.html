@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp Pro - Final Call Fix</title>
+    <title>WhatsApp Pro - Fixed Calling</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <script src="https://unpkg.com/zego-zim-web@2.12.0/index.js"></script>
@@ -14,40 +14,46 @@
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: sans-serif; }
         body { background: #dadbd3; height: 100vh; display: flex; flex-direction: column; }
         .hidden { display: none !important; }
-        header { background: var(--wa-teal); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+        header { background: var(--wa-teal); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
         #chat-window { position: fixed; inset: 0; background: var(--wa-bg); z-index: 2000; display: none; flex-direction: column; }
         #chat-window.open { display: flex; }
-        .msg-area { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; }
+        .msg-area { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
         .user-item { padding: 15px; background: white; border-bottom: 1px solid #eee; cursor: pointer; display: flex; align-items: center; }
-        .user-item img { width: 40px; border-radius: 50%; margin-right: 10px; }
-        .call-btn { font-size: 20px; margin-left: 20px; cursor: pointer; color: white; }
+        .user-item img { width: 45px; height: 45px; border-radius: 50%; margin-right: 12px; }
+        .call-btn { font-size: 20px; margin-left: 20px; cursor: pointer; color: white; transition: 0.2s; }
+        .call-btn:active { opacity: 0.5; }
     </style>
 </head>
 <body>
 
-    <div id="login-screen" style="padding: 50px; text-align: center;">
-        <h2>WhatsApp Login</h2>
-        <input type="email" id="l-email" placeholder="Email" style="padding:10px; margin:10px; width:80%;"><br>
-        <input type="password" id="l-pass" placeholder="Password" style="padding:10px; margin:10px; width:80%;"><br>
-        <button onclick="window.doLogin()" style="padding:10px 20px; background:var(--wa-green); border:none; color:white;">LOGIN</button>
+    <div id="login-screen" style="padding: 50px; text-align: center; background: white; height: 100vh;">
+        <h2 style="color: var(--wa-teal); margin-bottom: 20px;">WhatsApp Pro</h2>
+        <input type="email" id="l-email" placeholder="Email Address" style="padding:12px; margin:10px; width:90%; max-width: 300px; border: 1px solid #ccc; border-radius: 5px;"><br>
+        <input type="password" id="l-pass" placeholder="Password" style="padding:12px; margin:10px; width:90%; max-width: 300px; border: 1px solid #ccc; border-radius: 5px;"><br>
+        <button onclick="window.doLogin()" style="padding:12px 30px; background:var(--wa-green); border:none; color:white; font-weight: bold; border-radius: 5px; cursor: pointer;">LOGIN / REGISTER</button>
     </div>
 
     <div id="main-app" class="hidden">
-        <header><b>WhatsApp Pro</b> <i class="fas fa-sign-out-alt" onclick="window.logout()"></i></header>
+        <header>
+            <b>WhatsApp Pro</b> 
+            <i class="fas fa-sign-out-alt" onclick="window.logout()" style="cursor: pointer;"></i>
+        </header>
         <div id="user-list"></div>
     </div>
 
     <div id="chat-window">
         <header>
-            <i class="fas fa-arrow-left" onclick="window.closeChat()"></i>
+            <i class="fas fa-arrow-left" onclick="window.closeChat()" style="cursor: pointer;"></i>
             <div style="flex:1; margin-left:15px;"><b id="chat-name">User</b></div>
             <i class="fas fa-phone call-btn" onclick="window.makeCall('voice')"></i>
             <i class="fas fa-video call-btn" onclick="window.makeCall('video')"></i>
         </header>
         <div id="msg-area" class="msg-area"></div>
-        <div style="padding:10px; background:#eee; display:flex;">
-            <input type="text" id="m-input" style="flex:1; padding:10px; border-radius:20px; border:none;">
-            <button onclick="window.sendMsg()" style="border:none; background:none; margin-left:10px;"><i class="fas fa-paper-plane" style="color:var(--wa-teal); font-size:20px;"></i></button>
+        <div style="padding:10px; background:#f0f0f0; display:flex; align-items: center;">
+            <input type="text" id="m-input" placeholder="Type a message..." style="flex:1; padding:12px; border-radius:25px; border:none; outline: none;">
+            <button onclick="window.sendMsg()" style="border:none; background:none; margin-left:10px; cursor: pointer;">
+                <i class="fas fa-paper-plane" style="color:var(--wa-teal); font-size:22px;"></i>
+            </button>
         </div>
     </div>
 
@@ -68,41 +74,65 @@
         const db = getFirestore(app);
         let me = null, peer = null, zp = null;
 
-        // --- ZEGO SYSTEM ---
+        // --- ZEGO SYSTEM (FIXED) ---
         async function initZego(userId) {
-            const appID = 1452296766; 
-            const serverSecret = "66f773957cc433e5456f9185a1a1f0f5";
-            const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, userId, userId, userId);
-            
-            zp = ZegoUIKitPrebuilt.create(kitToken);
-            zp.addPlugins({ ZIM: window.ZIM }); // Pop-up ke liye zaroori
-            console.log("ZEGO READY ✅");
+            if (!window.ZIM || !window.ZegoUIKitPrebuilt) {
+                console.log("Waiting for Zego SDKs...");
+                setTimeout(() => initZego(userId), 1000);
+                return;
+            }
+
+            try {
+                const appID = 1452296766; 
+                const serverSecret = "66f773957cc433e5456f9185a1a1f0f5";
+                const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, userId, userId, userId);
+                
+                zp = ZegoUIKitPrebuilt.create(kitToken);
+                
+                // Plugin add karna zaroori hai calling pop-up ke liye
+                zp.addPlugins({ ZIM: window.ZIM }); 
+
+                console.log("ZEGO READY ✅ User:", userId);
+            } catch (err) {
+                console.error("Zego Init Error:", err);
+            }
         }
 
-        // --- MANUAL CALLING FUNCTION ---
+        // --- CALLING FUNCTION ---
         window.makeCall = (type) => {
-            if (!zp || !peer) return alert("System loading, wait...");
+            if (!zp) return alert("System is still loading, please wait 5 seconds...");
+            if (!peer) return alert("Please select a user to call.");
             
+            console.log("Starting " + type + " call to: " + peer.email);
+
             zp.sendCallInvitation({
                 invitees: [{ userID: peer.email, userName: peer.email }],
                 isVideoCall: type === 'video',
                 timeout: 60,
             }).then(res => {
-                console.log("Call sent successfully", res);
+                if (res.errorInvitees && res.errorInvitees.length > 0) {
+                    alert("User is offline or cannot receive calls.");
+                }
             }).catch(err => {
                 alert("Call error: " + err);
             });
         };
 
-        // --- FIREBASE AUTH ---
+        // --- FIREBASE LOGIC ---
         window.doLogin = async () => {
-            const e = document.getElementById('l-email').value;
-            const p = document.getElementById('l-pass').value;
+            const e = document.getElementById('l-email').value.trim();
+            const p = document.getElementById('l-pass').value.trim();
+            if(!e || !p) return alert("Please enter email and password");
+
             try {
                 await signInWithEmailAndPassword(auth, e, p);
-            } catch {
-                await createUserWithEmailAndPassword(auth, e, p);
-                await setDoc(doc(db, "users", e), { email: e });
+            } catch (err) {
+                if(err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+                    await createUserWithEmailAndPassword(auth, e, p);
+                    await setDoc(doc(db, "users", e), { email: e });
+                } else {
+                    alert(err.message);
+                }
             }
         };
 
@@ -146,17 +176,25 @@
                 snap.forEach(d => {
                     const m = d.data();
                     const div = document.createElement('div');
-                    div.style = `padding:8px; margin:5px; border-radius:10px; max-width:80%; ${m.sender === me.email ? 'align-self:flex-end; background:#dcf8c6;' : 'align-self:flex-start; background:white;'}`;
+                    div.style = `padding:10px; margin:5px; border-radius:12px; max-width:80%; font-size: 15px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); 
+                        ${m.sender === me.email ? 'align-self:flex-end; background:#dcf8c6;' : 'align-self:flex-start; background:white;'}`;
                     div.innerText = m.text;
                     area.appendChild(div);
                 });
+                area.scrollTop = area.scrollHeight;
             });
         }
 
         window.sendMsg = async () => {
             const inp = document.getElementById('m-input');
+            if(!inp.value.trim()) return;
             const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
-            await addDoc(collection(db, "messages"), { cid, sender: me.email, text: inp.value, time: Date.now() });
+            await addDoc(collection(db, "messages"), { 
+                cid, 
+                sender: me.email, 
+                text: inp.value, 
+                time: Date.now() 
+            });
             inp.value = "";
         };
 
@@ -164,8 +202,5 @@
         window.logout = () => signOut(auth).then(()=>location.reload());
         
     </script>
-    <script src="https://unpkg.com/zego-zim-web@2.12.0/index.js"></script>
-<script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
 </body>
 </html>
-
