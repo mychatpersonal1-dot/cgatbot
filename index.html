@@ -3,28 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WebRTC WhatsApp Final Fix</title>
+    <title>WhatsApp WebRTC Fixed</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root { --wa-teal: #075E54; --wa-green: #25D366; --wa-bg: #efe7de; }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
-        body { background: #dadbd3; height: 100vh; overflow: hidden; }
+        body { background: #dadbd3; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         .hidden { display: none !important; }
 
-        /* Video Screen */
+        /* Full Screen Video */
         #call-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; }
         #remote-video { width: 100%; height: 100%; object-fit: cover; }
-        #local-video { width: 100px; height: 150px; position: absolute; top: 20px; right: 20px; border: 2px solid #fff; border-radius: 10px; z-index: 10; background: #333; }
-        .call-controls { position: absolute; bottom: 50px; width: 100%; display: flex; justify-content: center; z-index: 20; }
-        .btn-hangup { width: 70px; height: 70px; border-radius: 50%; border: none; background: #ff3b30; color: white; font-size: 30px; cursor: pointer; }
+        #local-video { width: 100px; height: 140px; position: absolute; top: 20px; right: 20px; border: 2px solid white; border-radius: 10px; z-index: 10; background: #333; }
+        .hangup-btn { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; border-radius: 50%; background: #ff3b30; color: white; border: none; font-size: 30px; z-index: 20; }
 
-        /* Banner Style */
-        #incoming-banner { position: fixed; top: 10px; left: 5%; width: 90%; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.3); z-index: 10000; display: flex; justify-content: space-between; align-items: center; border: 2px solid var(--wa-green); }
+        /* Incoming Alert */
+        #incoming-banner { position: fixed; top: 0; left: 0; width: 100%; background: white; padding: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); z-index: 10000; display: flex; justify-content: space-between; align-items: center; }
 
-        header { background: var(--wa-teal); color: white; padding: 15px; display: flex; justify-content: space-between; }
-        .user-item { padding: 15px; background: white; border-bottom: 1px solid #eee; cursor: pointer; font-weight: bold; }
+        /* UI Elements */
+        header { background: var(--wa-teal); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+        #user-list { flex: 1; overflow-y: auto; background: white; }
+        .user-card { padding: 15px; border-bottom: 1px solid #eee; font-weight: bold; cursor: pointer; display: flex; align-items: center; }
+        .user-card i { margin-right: 15px; color: #777; font-size: 20px; }
+        
         #chat-window { position: fixed; inset: 0; background: var(--wa-bg); z-index: 2000; display: flex; flex-direction: column; transform: translateX(100%); transition: 0.3s; }
         #chat-window.open { transform: translateX(0); }
+
+        #login-screen { position: fixed; inset: 0; background: var(--wa-teal); z-index: 10001; display: flex; justify-content: center; align-items: center; }
+        .login-box { background: white; padding: 30px; border-radius: 10px; width: 85%; max-width: 400px; text-align: center; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; }
+        .btn-green { width: 100%; padding: 12px; background: var(--wa-green); color: white; border: none; font-weight: bold; border-radius: 5px; }
     </style>
 </head>
 <body>
@@ -32,30 +40,40 @@
     <div id="call-screen" class="hidden">
         <video id="local-video" autoplay playsinline muted></video>
         <video id="remote-video" autoplay playsinline></video>
-        <div class="call-controls"><button onclick="location.reload()" class="btn-hangup"><i class="fas fa-phone-slash"></i></button></div>
+        <button onclick="location.reload()" class="hangup-btn"><i class="fas fa-phone-slash"></i></button>
     </div>
 
     <div id="incoming-banner" class="hidden">
-        <div><small>Incoming Call...</small><br><b id="caller-id">User</b></div>
-        <button id="main-accept-btn" style="background:var(--wa-green); color:white; border:none; padding:10px 20px; border-radius:20px; font-weight:bold;">ACCEPT</button>
+        <div><small>Calling...</small><br><b id="caller-name">User</b></div>
+        <button id="accept-call-btn" style="background:var(--wa-green); color:white; border:none; padding:10px 20px; border-radius:20px; font-weight:bold;">ACCEPT</button>
     </div>
 
-    <div id="login-screen" style="position:fixed; inset:0; background:var(--wa-teal); z-index:10001; display:flex; align-items:center; justify-content:center;">
-        <div style="background:white; padding:30px; border-radius:10px; width:85%;">
-            <input type="email" id="l-email" placeholder="Email" style="width:100%; padding:12px; margin-bottom:10px;">
-            <input type="password" id="l-pass" placeholder="Password" style="width:100%; padding:12px; margin-bottom:10px;">
-            <button onclick="window.doLogin()" style="width:100%; padding:12px; background:var(--wa-green); color:white; border:none;">LOGIN</button>
+    <div id="login-screen">
+        <div class="login-box">
+            <h2 style="color:var(--wa-teal)">StudyBook Login</h2>
+            <input type="email" id="l-email" placeholder="Email Address">
+            <input type="password" id="l-pass" placeholder="Password">
+            <button onclick="window.doLogin()" class="btn-green">LOGIN / SIGNUP</button>
         </div>
     </div>
 
-    <div id="main-app" class="hidden">
-        <header><b>WhatsApp WebRTC</b> <i class="fas fa-sign-out-alt" onclick="window.logout()"></i></header>
+    <div id="main-app" class="hidden" style="height:100%; display:flex; flex-direction:column;">
+        <header>
+            <b>WhatsApp Pro</b>
+            <i class="fas fa-sign-out-alt" onclick="window.logout()"></i>
+        </header>
         <div id="user-list"></div>
     </div>
 
     <div id="chat-window">
-        <header><i class="fas fa-arrow-left" onclick="window.closeChat()"></i><b id="chat-name">User</b><i class="fas fa-video" onclick="window.startCall()" style="cursor:pointer;"></i></header>
-        <div style="flex:1;"></div>
+        <header>
+            <i class="fas fa-arrow-left" onclick="window.closeChat()"></i>
+            <b id="chat-title">Chat</b>
+            <i class="fas fa-video" onclick="window.makeCall()" style="font-size:22px;"></i>
+        </header>
+        <div style="flex:1; display:flex; align-items:center; justify-content:center; color:#999;">
+            Tap video icon to start WebRTC call
+        </div>
     </div>
 
     <script type="module">
@@ -74,49 +92,54 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        let me = null, peer = null, pc = null, localStream = null;
-        const servers = { iceServers: [{ urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }] };
+        let me = null, targetPeer = null, pc = null, localStream = null;
+        const iceServers = { iceServers: [{ urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }] };
 
+        // Login
         window.doLogin = async () => {
             const e = document.getElementById('l-email').value, p = document.getElementById('l-pass').value;
+            if(!e || !p) return alert("Email/Pass bharo!");
             try { await signInWithEmailAndPassword(auth, e, p); } catch { await createUserWithEmailAndPassword(auth, e, p); }
         };
 
         onAuthStateChanged(auth, async u => {
             if(u) {
                 me = u;
-                // FIX 1: Save user to DB immediately
-                await setDoc(doc(db, "users", u.uid), { email: u.email, uid: u.uid });
+                await setDoc(doc(db, "users", u.uid), { email: u.email, uid: u.uid }, { merge: true });
                 document.getElementById('login-screen').classList.add('hidden');
                 document.getElementById('main-app').classList.remove('hidden');
-                loadUsers();
-                listenForCalls();
+                loadAllUsers();
+                listenForIncoming();
             }
         });
 
-        function loadUsers() {
+        function loadAllUsers() {
             onSnapshot(collection(db, "users"), snap => {
                 const list = document.getElementById('user-list'); list.innerHTML = "";
-                snap.forEach(d => { if(d.data().email !== me.email) {
-                    const div = document.createElement('div'); div.className="user-item"; div.innerText = d.data().email;
-                    div.onclick = () => { peer = d.data(); document.getElementById('chat-window').classList.add('open'); document.getElementById('chat-name').innerText=peer.email; };
-                    list.appendChild(div);
-                }});
+                snap.forEach(d => { 
+                    if(d.data().email !== me.email) {
+                        const div = document.createElement('div'); div.className="user-card";
+                        div.innerHTML = `<i class="fas fa-user-circle"></i> ${d.data().email}`;
+                        div.onclick = () => { targetPeer = d.data(); document.getElementById('chat-window').classList.add('open'); document.getElementById('chat-title').innerText=targetPeer.email; };
+                        list.appendChild(div);
+                    }
+                });
             });
         }
 
-        async function getMedia() {
+        async function startMedia() {
             localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             document.getElementById('local-video').srcObject = localStream;
             return localStream;
         }
 
-        window.startCall = async () => {
-            const stream = await getMedia();
+        // START CALL
+        window.makeCall = async () => {
+            const stream = await startMedia();
             document.getElementById('call-screen').classList.remove('hidden');
-            pc = new RTCPeerConnection(servers);
+            pc = new RTCPeerConnection(iceServers);
             stream.getTracks().forEach(t => pc.addTrack(t, stream));
-            
+
             const remoteStream = new MediaStream();
             document.getElementById('remote-video').srcObject = remoteStream;
             pc.ontrack = e => e.streams[0].getTracks().forEach(t => remoteStream.addTrack(t));
@@ -126,32 +149,33 @@
 
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
-            await setDoc(callDoc, { offer: { type: offer.type, sdp: offer.sdp }, target: peer.email, caller: me.email });
+            await setDoc(callDoc, { offer, target: targetPeer.email, caller: me.email });
 
             onSnapshot(callDoc, snap => { if(snap.data()?.answer && !pc.currentRemoteDescription) pc.setRemoteDescription(new RTCSessionDescription(snap.data().answer)); });
             onSnapshot(collection(callDoc, "answerCandidates"), snap => snap.docChanges().forEach(c => c.type === "added" && pc.addIceCandidate(new RTCIceCandidate(c.doc.data()))));
         };
 
-        function listenForCalls() {
-            // FIX 2: Better listener for incoming calls
+        // LISTEN CALL
+        function listenForIncoming() {
             onSnapshot(query(collection(db, "calls"), where("target", "==", me.email)), snap => {
                 snap.docChanges().forEach(async change => {
                     if (change.type === "added") {
                         const data = change.doc.data();
                         document.getElementById('incoming-banner').classList.remove('hidden');
-                        document.getElementById('caller-id').innerText = data.caller;
-                        document.getElementById('main-accept-btn').onclick = () => answerCall(change.doc.id, data);
+                        document.getElementById('caller-name').innerText = data.caller;
+                        document.getElementById('accept-call-btn').onclick = () => acceptCall(change.doc.id, data);
                     }
                 });
             });
         }
 
-        async function answerCall(id, data) {
+        async function acceptCall(id, data) {
             document.getElementById('incoming-banner').classList.add('hidden');
             document.getElementById('call-screen').classList.remove('hidden');
-            const stream = await getMedia();
-            pc = new RTCPeerConnection(servers);
+            const stream = await startMedia();
+            pc = new RTCPeerConnection(iceServers);
             stream.getTracks().forEach(t => pc.addTrack(t, stream));
+
             const remoteStream = new MediaStream();
             document.getElementById('remote-video').srcObject = remoteStream;
             pc.ontrack = e => e.streams[0].getTracks().forEach(t => remoteStream.addTrack(t));
@@ -160,7 +184,7 @@
             await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
-            await updateDoc(doc(db, "calls", id), { answer: { type: answer.type, sdp: answer.sdp } });
+            await updateDoc(doc(db, "calls", id), { answer });
             onSnapshot(collection(db, "calls", id, "offerCandidates"), snap => snap.docChanges().forEach(c => c.type === "added" && pc.addIceCandidate(new RTCIceCandidate(c.doc.data()))));
         }
 
