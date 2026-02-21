@@ -60,7 +60,7 @@
  <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-    import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, doc, setDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
     const firebaseConfig = { 
         apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
@@ -72,73 +72,69 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
-    let me = null, currentPeerEmail = null, zp = null;
+    
+    let me = null;
+    let zp = null;
 
-    // --- 1. ZEGO INITIALIZATION (SUPER STABLE VERSION) ---
+    // --- 1. ZEGO INITIALIZATION ---
     async function initZego(userId) {
-        // Agar SDK load nahi hui toh wait karo
-        if (typeof ZegoUIKitPrebuilt === 'undefined' || typeof ZIM === 'undefined') {
-            console.log("SDKs not found, retrying in 1s...");
+        if (!window.ZegoUIKitPrebuilt || !window.ZIM) {
             setTimeout(() => initZego(userId), 1000);
             return;
         }
-
         try {
             const appID = 1452296766; 
             const serverSecret = "66f773957cc433e5456f9185a1a1f0f5";
             const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, userId, userId, userId);
             
             zp = ZegoUIKitPrebuilt.create(kitToken);
-            
-            // Sabse Important Line: ZIM Plugin loading
-            zp.addPlugins({ ZIM }); 
+            zp.addPlugins({ ZIM: window.ZIM }); 
             
             console.log("ZEGO READY ✅ User:", userId);
         } catch (err) {
             console.error("Zego Init Error:", err);
-            // Error aaye toh 3 second baad fir try karo
-            setTimeout(() => initZego(userId), 3000);
         }
     }
 
-    // --- 2. CALL FUNCTION (PARAM ERROR FIX) ---
+    // --- 2. FIXED CALL LOGIC (Special for bookb & admin) ---
     window.makeCall = (type) => {
-        if (!zp) {
-            console.log("Zego null, attempting re-init...");
-            if(me) initZego(me.email);
-            alert("Zego system taiyar ho raha hai... 3 second rukiye.");
+        if (!zp) return alert("Zego system taiyar ho raha hai... 5 second rukiye.");
+        if (!me) return alert("Pehle login karein!");
+
+        // FIXED TARGET LOGIC
+        let targetEmail = "";
+        if (me.email === "admin@gmail.com") {
+            targetEmail = "bookb@gmail.com";
+        } else if (me.email === "bookb@gmail.com") {
+            targetEmail = "admin@gmail.com";
+        } else {
+            alert("Ye feature sirf Admin aur BookB ke liye fix hai!");
             return;
         }
 
-        if (!currentPeerEmail) {
-            alert("Pehle kisi user ki chat open kijiye!");
-            return;
-        }
-
-        console.log("Calling:", currentPeerEmail);
+        console.log("Calling Fixed User:", targetEmail);
 
         zp.sendCallInvitation({
-            invitees: [{ userID: currentPeerEmail, userName: currentPeerEmail }],
+            invitees: [{ userID: targetEmail, userName: targetEmail }],
             isVideoCall: type === 'video',
             timeout: 60,
         }).then(res => {
             console.log("Call sent:", res);
             if (res.errorInvitees && res.errorInvitees.length > 0) {
-                alert("User online nahi hai.");
+                alert(targetEmail + " offline hai ya logged in nahi hai!");
             }
         }).catch(err => {
-            alert("Call Failed: " + err.message);
+            alert("Call error: " + err.message);
         });
     };
 
-    // --- 3. LOGIN & AUTH ---
+    // --- 3. AUTH & FIREBASE ---
     window.doLogin = async () => {
         const e = document.getElementById('l-email').value.trim();
         const p = document.getElementById('l-pass').value.trim();
-        if(!e || !p) return alert("Details bhariye");
         try {
             await signInWithEmailAndPassword(auth, e, p);
-        } catch (err) {
+        } catch {
             await createUserWithEmailAndPassword(auth, e, p);
             await setDoc(doc(db, "users", e), { email: e });
         }
@@ -149,65 +145,15 @@
             me = u;
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('main-app').classList.remove('hidden');
-            // Login hote hi Zego chalu karo
             initZego(me.email);
-            loadList();
         }
     });
 
-    // --- 4. UI & CHAT LOGIC ---
-    function loadList() {
-        onSnapshot(collection(db, "users"), snap => {
-            const list = document.getElementById('user-list'); list.innerHTML = "";
-            snap.forEach(d => {
-                const u = d.data();
-                if(u.email !== me.email) {
-                    const div = document.createElement('div'); div.className = "user-item";
-                    div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${u.email}"> <b>${u.email}</b>`;
-                    div.onclick = () => window.openChat(u.email);
-                    list.appendChild(div);
-                }
-            });
-        });
-    }
-
-    window.openChat = (email) => {
-        currentPeerEmail = email; 
-        document.getElementById('chat-window').classList.add('open');
-        document.getElementById('chat-name').innerText = email;
-        listenMessages(email);
-    };
-
-    function listenMessages(peerEmail) {
-        const cid = me.email < peerEmail ? me.email + "_" + peerEmail : peerEmail + "_" + me.email;
-        const q = query(collection(db, "messages"), where("cid", "==", cid), orderBy("time", "asc"));
-        onSnapshot(q, snap => {
-            const area = document.getElementById('msg-area'); area.innerHTML = "";
-            snap.forEach(d => {
-                const m = d.data();
-                const div = document.createElement('div');
-                div.style = `padding:10px; margin:5px; border-radius:12px; max-width:80%; font-size: 15px; 
-                    ${m.sender === me.email ? 'align-self:flex-end; background:#dcf8c6;' : 'align-self:flex-start; background:white;'}`;
-                div.innerText = m.text;
-                area.appendChild(div);
-            });
-            area.scrollTop = area.scrollHeight;
-        });
-    }
-
-    window.sendMsg = async () => {
-        const inp = document.getElementById('m-input');
-        if(!inp.value.trim() || !currentPeerEmail) return;
-        const cid = me.email < currentPeerEmail ? me.email + "_" + currentPeerEmail : currentPeerEmail + "_" + me.email;
-        await addDoc(collection(db, "messages"), { cid, sender: me.email, text: inp.value, time: Date.now() });
-        inp.value = "";
-    };
-
-    window.closeChat = () => document.getElementById('chat-window').classList.remove('open');
     window.logout = () => signOut(auth).then(()=>location.reload());
 </script>
 </body>
 </html>
+
 
 
 
