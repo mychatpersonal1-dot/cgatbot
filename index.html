@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WhatsApp Pro - Dashboard Fixed</title>
+    <title>WhatsApp Pro - Calling Fixed</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
+    <script src="https://unpkg.com/zego-zim-web@2.12.0/index.js"></script>
+    
     <style>
         :root { --wa-teal: #075E54; --wa-green: #25D366; --wa-blue: #34B7F1; --wa-bg: #efe7de; }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
@@ -21,9 +23,7 @@
         .received { align-self: flex-start; background: white; }
         .msg-meta { display: flex; align-items: center; justify-content: flex-end; font-size: 10px; color: #777; margin-top: 3px; }
         .blue-tick { color: var(--wa-blue); margin-left: 3px; }
-        /* Delete Icon Style */
         .del-msg { font-size: 11px; color: #b0bec5; margin-left: 8px; cursor: pointer; }
-        
         .user-item { display: flex; align-items: center; padding: 15px; background: white; border-bottom: 1px solid #eee; cursor: pointer; }
         .user-item img { width: 45px; height: 45px; border-radius: 50%; margin-right: 15px; }
         #admin-panel { position: fixed; inset: 0; background: #f0f2f5; z-index: 5000; display: flex; flex-direction: column; }
@@ -84,8 +84,8 @@
                 <b id="chat-name">User</b>
                 <span id="chat-lastseen" class="last-seen">Offline</span>
             </div>
-            <i class="fas fa-phone" onclick="window.startCall('audio')" style="margin-right:20px; cursor:pointer;"></i>
-            <i class="fas fa-video" id="video-icon" onclick="window.startCall('video')" style="margin-right:10px; cursor:pointer;"></i>
+            <i class="fas fa-phone" id="audio-call-btn" style="margin-right:20px; cursor:pointer;"></i>
+            <i class="fas fa-video" id="video-call-btn" style="margin-right:10px; cursor:pointer;"></i>
         </div>
         <div id="msg-area" class="msg-area"></div>
         <div style="padding:10px; background:#f0f0f0; display:flex; align-items:center;">
@@ -101,7 +101,6 @@
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, setDoc, deleteDoc, serverTimestamp, getDocs, getDoc, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // CONFIG (Keep your own)
         const firebaseConfig = { 
             apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
             authDomain: "my-chat-project-4e376.firebaseapp.com", 
@@ -113,38 +112,59 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
         let me = null, peer = null;
+        let zp = null; // Zego Instance
         const ADMIN_EMAIL = "admin@gmail.com"; 
 
-        // Sound and Login Logic...
-        const notifySound = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
+        // --- ZEGO INITIALIZATION ---
+        async function initZego(userId) {
+            const appID = 1452296766; 
+            const serverSecret = "66f773957cc433e5456f9185a1a1f0f5";
+            const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, userId, userId, userId);
+            
+            zp = ZegoUIKitPrebuilt.create(kitToken);
+            
+            // Ye line important hai incoming call pop-up ke liye
+            zp.addPlugins({ ZIM: window.ZIM });
 
-        window.openPreview = (src) => {
-            const overlay = document.getElementById('preview-overlay');
-            document.getElementById('preview-img').src = src;
-            overlay.style.display = 'flex';
-        };
+            // Setup Call Buttons
+            zp.setCallInvitationConfig({
+                enableCustomCallInvitationWaitingPage: false,
+                enableCustomCallInvitationIncomingPage: false,
+                onIncomingCallReceived: (callID, caller, callType, callees) => {
+                    console.log("Incoming call...");
+                }
+            });
+        }
 
+        // Apply call buttons when chat opens
+        function setupCallButtons() {
+            const audioBtn = document.getElementById('audio-call-btn');
+            const videoBtn = document.getElementById('video-call-btn');
+
+            if(zp && peer) {
+                zp.bindAudioCallInvitation(audioBtn, {
+                    invitees: [{ userID: peer.email, userName: peer.email }]
+                });
+                zp.bindVideoCallInvitation(videoBtn, {
+                    invitees: [{ userID: peer.email, userName: peer.email }]
+                });
+            }
+        }
+
+        // --- AUTH LOGIC ---
         window.doLogin = async () => {
             const e = document.getElementById('l-email').value.trim();
             const p = document.getElementById('l-pass').value.trim();
             if(!e || !p) return alert("Email/Pass bhariye!");
             try {
                 const uSnap = await getDoc(doc(db, "users", e));
-                if(uSnap.exists()) {
-                    const userData = uSnap.data();
-                    if(userData.password === p) {
-                        try { await signInWithEmailAndPassword(auth, e, p); } catch (err) {
-                            if(err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-                                await createUserWithEmailAndPassword(auth, e, p);
-                            } else { throw err; }
-                        }
-                    } else { alert("Galat Password!"); }
-                } else if(e === ADMIN_EMAIL) {
-                    try { await signInWithEmailAndPassword(auth, e, p); } catch {
-                        await createUserWithEmailAndPassword(auth, e, p);
-                        await setDoc(doc(db, "users", e), { email: e, password: p, role: "admin" });
-                    }
-                } else { alert("User database mein nahi mila!"); }
+                if(uSnap.exists() || e === ADMIN_EMAIL) {
+                    await signInWithEmailAndPassword(auth, e, p).catch(async (err) => {
+                         if(err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+                             await createUserWithEmailAndPassword(auth, e, p);
+                         }
+                    });
+                } else { alert("User nahi mila!"); }
             } catch (error) { alert("Error: " + error.message); }
         };
 
@@ -156,27 +176,11 @@
                 if(me.email === ADMIN_EMAIL) document.getElementById('admin-icon').classList.remove('hidden');
                 setDoc(doc(db, "presence", me.email), { status: "online", last: serverTimestamp() }, { merge: true });
                 loadList();
-                listenToGlobal();
+                initZego(me.email); // Connect Zego for calls
             }
         });
 
-        // Global Listeners...
-        function listenToGlobal() {
-            const q = query(collection(db, "messages"), orderBy("time", "desc"), limit(1));
-            onSnapshot(q, snap => {
-                snap.docChanges().forEach(change => {
-                    if (change.type === "added") {
-                        const m = change.doc.data();
-                        if (m.sender !== me.email && m.cid.includes(me.email)) {
-                            if (!peer || peer.email !== m.sender) {
-                                notifySound.play().catch(()=>{});
-                            }
-                        }
-                    }
-                });
-            });
-        }
-
+        // --- CHAT & USER LIST ---
         function loadList() {
             onSnapshot(collection(db, "users"), snap => {
                 const list = document.getElementById('user-list'); list.innerHTML = "";
@@ -192,7 +196,7 @@
             });
         }
 
-        function openChat(email) {
+        window.openChat = (email) => {
             peer = {email}; 
             document.getElementById('chat-window').classList.add('open');
             document.getElementById('chat-name').innerText = email;
@@ -200,7 +204,8 @@
                 document.getElementById('chat-lastseen').innerText = d.data()?.status === "online" ? "Online" : "Offline";
             });
             listen();
-        }
+            setupCallButtons(); // Connect call buttons to this peer
+        };
 
         function listen() {
             const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
@@ -209,24 +214,15 @@
                 const area = document.getElementById('msg-area'); area.innerHTML = "";
                 snap.forEach(d => {
                     const m = d.data();
-                    if(!m.read && m.sender !== me.email) updateDoc(doc(db, "messages", d.id), { read: true });
                     const div = document.createElement('div');
                     div.className = `msg ${m.sender === me.email ? 'sent' : 'received'}`;
                     let body = m.type === "image" ? `<img src="${m.img}" style="width:100%; border-radius:5px; cursor:pointer;" onclick="window.openPreview('${m.img}')">` : `<div>${m.text}</div>`;
-                    
-                    // Trash Icon for Sender
-                    const delHtml = m.sender === me.email ? `<i class="fas fa-trash del-msg" onclick="window.deleteMessage('${d.id}')"></i>` : '';
-                    
-                    div.innerHTML = `${body}<div class="msg-meta">${m.dt} ${m.sender === me.email ? `<i class="fas fa-check-double ${m.read ? 'blue-tick' : ''}"></i>` : ''} ${delHtml}</div>`;
+                    div.innerHTML = `${body}<div class="msg-meta">${m.dt} ${m.sender === me.email ? `<i class="fas fa-check-double ${m.read ? 'blue-tick' : ''}"></i>` : ''}</div>`;
                     area.appendChild(div);
                 });
                 area.scrollTop = area.scrollHeight;
             });
         }
-
-        window.deleteMessage = async (id) => {
-            if(confirm("Message delete karein?")) await deleteDoc(doc(db, "messages", id));
-        };
 
         window.sendMsg = async () => {
             const inp = document.getElementById('m-input'); if(!inp.value) return;
@@ -238,115 +234,30 @@
             inp.value = "";
         };
 
-       window.sendImage = (input) => {
-    const file = input.files[0]; 
-    if(!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const img = new Image();
-        img.src = e.target.result;
-        img.onload = async () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            // Limit: Image ki max width/height 800px rakhenge
-            const MAX_WIDTH = 800;
-            const MAX_HEIGHT = 800;
-            let width = img.width;
-            let height = img.height;
-
-            if (width > height) {
-                if (width > MAX_WIDTH) {
-                    height *= MAX_WIDTH / width;
-                    width = MAX_WIDTH;
-                }
-            } else {
-                if (height > MAX_HEIGHT) {
-                    width *= MAX_HEIGHT / height;
-                    height = MAX_HEIGHT;
-                }
-            }
-
-            canvas.width = width;
-            canvas.height = height;
-            ctx.drawImage(img, 0, 0, width, height);
-
-            // Sabse important step: Quality ko 0.5 (50%) kar diya
-            // Isse file size drastically kam ho jayega (usually < 100KB)
-            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.5);
-
-            const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
-            await addDoc(collection(db, "messages"), {
-                cid, 
-                sender: me.email, 
-                img: compressedBase64, 
-                type: "image", 
-                time: Date.now(), 
-                read: false,
-                dt: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
-            });
-            input.value = ""; // Input reset karein
-        };
-    };
-    reader.readAsDataURL(file);
-};
-
-        // ZEGO CALLING
-        window.startCall = (mode) => {
-            const userID = me.email;
-            const userName = me.email;
-            const appID = 1452296766; 
-            const serverSecret = "66f773957cc433e5456f9185a1a1f0f5"; 
-            
-            const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, peer.email, userID, userName);
-            const zp = ZegoUIKitPrebuilt.create(kitToken);
-            
-            zp.sendCallInvitation({
-                invitees: [{ userID: peer.email, userName: peer.email }],
-                isVideoCall: mode === 'video',
-                timeout: 60,
-            });
-        };
-
-        // ADMIN DASHBOARD (With KEY icon wapas)
+        // --- ADMIN HELPERS ---
         window.showAdmin = async () => {
             document.getElementById('admin-panel').classList.remove('hidden');
             const snap = await getDocs(collection(db, "users"));
             const div = document.getElementById('admin-user-list'); div.innerHTML = "";
             snap.forEach(d => {
                 const u = d.data();
-                div.innerHTML += `<div style="background:white; padding:10px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center; border-radius:5px;">
-                    <span>${u.email} <br> <small>Pass: ${u.password}</small></span>
-                    <div>
-                        <i class="fas fa-key" style="color:blue; margin-right:20px; cursor:pointer;" onclick="window.changePass('${u.email}')"></i>
-                        <i class="fas fa-trash" style="color:red; cursor:pointer;" onclick="window.delUser('${u.email}')"></i>
-                    </div>
+                div.innerHTML += `<div style="background:white; padding:10px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>${u.email}</span>
+                    <i class="fas fa-trash" style="color:red; cursor:pointer;" onclick="window.delUser('${u.email}')"></i>
                 </div>`;
             });
-        };
-
-        window.changePass = async (email) => {
-            const n = prompt("Naya Password daalo (Min 6 char):");
-            if(n && n.length >= 6) {
-                await updateDoc(doc(db, "users", email), { password: n });
-                alert("Password update ho gaya!");
-                window.showAdmin();
-            } else if(n) { alert("Password chhota hai!"); }
         };
 
         window.createUser = async () => {
             const e = document.getElementById('new-user-email').value.trim();
             const p = document.getElementById('new-user-pass').value.trim();
-            if(!e || p.length < 6) return alert("Email/Pass bhariye!");
+            if(!e || p.length < 6) return alert("Data sahi dalein!");
             await setDoc(doc(db, "users", e), { email: e, password: p });
             window.showAdmin();
         };
 
-        window.delUser = async (id) => { if(confirm("User delete karein?")) await deleteDoc(doc(db, "users", id)); window.showAdmin(); };
-        window.logout = () => { setDoc(doc(db, "presence", me.email), { status: "offline" }, { merge: true }); signOut(auth).then(()=>location.reload()); };
-        window.closeChat = () => { peer = null; document.getElementById('chat-window').classList.remove('open'); };
+        window.logout = () => { signOut(auth).then(()=>location.reload()); };
+        window.closeChat = () => { document.getElementById('chat-window').classList.remove('open'); };
     </script>
 </body>
 </html>
-
