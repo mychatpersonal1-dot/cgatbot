@@ -57,7 +57,7 @@
         </div>
     </div>
 
-  <script type="module">
+ <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
     import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, doc, setDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -74,64 +74,68 @@
     const db = getFirestore(app);
     let me = null, currentPeerEmail = null, zp = null;
 
-    // --- 1. ZEGO INITIALIZATION (Sahi Tarike Se) ---
+    // --- 1. ZEGO INITIALIZATION (SUPER STABLE VERSION) ---
     async function initZego(userId) {
-        if (!window.ZIM || !window.ZegoUIKitPrebuilt) {
-            console.log("Waiting for SDKs...");
-            setTimeout(() => initZego(userId), 1500);
+        // Agar SDK load nahi hui toh wait karo
+        if (typeof ZegoUIKitPrebuilt === 'undefined' || typeof ZIM === 'undefined') {
+            console.log("SDKs not found, retrying in 1s...");
+            setTimeout(() => initZego(userId), 1000);
             return;
         }
+
         try {
             const appID = 1452296766; 
             const serverSecret = "66f773957cc433e5456f9185a1a1f0f5";
             const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, userId, userId, userId);
             
             zp = ZegoUIKitPrebuilt.create(kitToken);
-            zp.addPlugins({ ZIM: window.ZIM }); 
             
-            console.log("ZEGO SYSTEM READY ✅ User:", userId);
+            // Sabse Important Line: ZIM Plugin loading
+            zp.addPlugins({ ZIM }); 
+            
+            console.log("ZEGO READY ✅ User:", userId);
         } catch (err) {
             console.error("Zego Init Error:", err);
+            // Error aaye toh 3 second baad fir try karo
+            setTimeout(() => initZego(userId), 3000);
         }
     }
 
-    // --- 2. CALL FUNCTION (Param Error Fix) ---
+    // --- 2. CALL FUNCTION (PARAM ERROR FIX) ---
     window.makeCall = (type) => {
-        // Agar Zego load nahi hua
         if (!zp) {
-            alert("Zego load ho raha hai, please 5 second baad click karein.");
+            console.log("Zego null, attempting re-init...");
             if(me) initZego(me.email);
+            alert("Zego system taiyar ho raha hai... 3 second rukiye.");
             return;
         }
 
-        // Sabse important: Peer email check karna
         if (!currentPeerEmail) {
-            alert("Galti: Pehle kisi user ki chat open karein, tabhi call lagegi!");
+            alert("Pehle kisi user ki chat open kijiye!");
             return;
         }
 
-        console.log("Initiating Call to:", currentPeerEmail);
+        console.log("Calling:", currentPeerEmail);
 
         zp.sendCallInvitation({
             invitees: [{ userID: currentPeerEmail, userName: currentPeerEmail }],
             isVideoCall: type === 'video',
             timeout: 60,
         }).then(res => {
-            console.log("Call sent successfully", res);
+            console.log("Call sent:", res);
             if (res.errorInvitees && res.errorInvitees.length > 0) {
-                alert("Target user is not logged in or offline.");
+                alert("User online nahi hai.");
             }
         }).catch(err => {
-            console.error("Zego Error:", err);
             alert("Call Failed: " + err.message);
         });
     };
 
-    // --- 3. FIREBASE & UI LOGIC ---
+    // --- 3. LOGIN & AUTH ---
     window.doLogin = async () => {
         const e = document.getElementById('l-email').value.trim();
         const p = document.getElementById('l-pass').value.trim();
-        if(!e || !p) return alert("Enter credentials");
+        if(!e || !p) return alert("Details bhariye");
         try {
             await signInWithEmailAndPassword(auth, e, p);
         } catch (err) {
@@ -145,11 +149,13 @@
             me = u;
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('main-app').classList.remove('hidden');
+            // Login hote hi Zego chalu karo
             initZego(me.email);
             loadList();
         }
     });
 
+    // --- 4. UI & CHAT LOGIC ---
     function loadList() {
         onSnapshot(collection(db, "users"), snap => {
             const list = document.getElementById('user-list'); list.innerHTML = "";
@@ -166,14 +172,12 @@
     }
 
     window.openChat = (email) => {
-        console.log("Opening chat with:", email);
-        currentPeerEmail = email; // Calling function ab is email ka use karegi
+        currentPeerEmail = email; 
         document.getElementById('chat-window').classList.add('open');
         document.getElementById('chat-name').innerText = email;
         listenMessages(email);
     };
 
-    // --- Message & Logout functions same rahenge ---
     function listenMessages(peerEmail) {
         const cid = me.email < peerEmail ? me.email + "_" + peerEmail : peerEmail + "_" + me.email;
         const q = query(collection(db, "messages"), where("cid", "==", cid), orderBy("time", "asc"));
@@ -204,6 +208,7 @@
 </script>
 </body>
 </html>
+
 
 
 
