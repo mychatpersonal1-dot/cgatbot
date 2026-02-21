@@ -95,169 +95,174 @@
             <i class="fas fa-paper-plane" onclick="window.sendMsg()" style="color:var(--wa-teal); font-size:22px; cursor:pointer;"></i>
         </div>
     </div>
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, setDoc, deleteDoc, serverTimestamp, getDocs, getDoc, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, updateDoc, doc, setDoc, deleteDoc, serverTimestamp, getDocs, getDoc, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    const firebaseConfig = { 
+        apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
+        authDomain: "my-chat-project-4e376.firebaseapp.com", 
+        projectId: "my-chat-project-4e376", 
+        appId: "1:264696350288:web:8c0367e6dce7c5f5517355"
+    };
 
-        const firebaseConfig = { 
-            apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
-            authDomain: "my-chat-project-4e376.firebaseapp.com", 
-            projectId: "my-chat-project-4e376", 
-            appId: "1:264696350288:web:8c0367e6dce7c5f5517355"
-        };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    let me = null, peer = null;
+    let zp = null; 
+    const ADMIN_EMAIL = "admin@gmail.com"; 
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        let me = null, peer = null;
-        let zp = null; // Zego Instance
-        const ADMIN_EMAIL = "admin@gmail.com"; 
+    // --- ZEGO INITIALIZATION ---
+    async function initZego(userId) {
+        const appID = 1452296766; 
+        const serverSecret = "66f773957cc433e5456f9185a1a1f0f5";
+        const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, userId, userId, userId);
+        
+        zp = ZegoUIKitPrebuilt.create(kitToken);
+        
+        // Mandatory for calling UI (Accept/Reject pop-up)
+        zp.addPlugins({ ZIM: window.ZIM });
 
-        // --- ZEGO INITIALIZATION ---
-        async function initZego(userId) {
-            const appID = 1452296766; 
-            const serverSecret = "66f773957cc433e5456f9185a1a1f0f5";
-            const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, userId, userId, userId);
-            
-            zp = ZegoUIKitPrebuilt.create(kitToken);
-            
-            // Ye line important hai incoming call pop-up ke liye
-            zp.addPlugins({ ZIM: window.ZIM });
-
-            // Setup Call Buttons
-            zp.setCallInvitationConfig({
-                enableCustomCallInvitationWaitingPage: false,
-                enableCustomCallInvitationIncomingPage: false,
-                onIncomingCallReceived: (callID, caller, callType, callees) => {
-                    console.log("Incoming call...");
-                }
-            });
-        }
-
-        // Apply call buttons when chat opens
-        function setupCallButtons() {
-            const audioBtn = document.getElementById('audio-call-btn');
-            const videoBtn = document.getElementById('video-call-btn');
-
-            if(zp && peer) {
-                zp.bindAudioCallInvitation(audioBtn, {
-                    invitees: [{ userID: peer.email, userName: peer.email }]
-                });
-                zp.bindVideoCallInvitation(videoBtn, {
-                    invitees: [{ userID: peer.email, userName: peer.email }]
-                });
-            }
-        }
-
-        // --- AUTH LOGIC ---
-        window.doLogin = async () => {
-            const e = document.getElementById('l-email').value.trim();
-            const p = document.getElementById('l-pass').value.trim();
-            if(!e || !p) return alert("Email/Pass bhariye!");
-            try {
-                const uSnap = await getDoc(doc(db, "users", e));
-                if(uSnap.exists() || e === ADMIN_EMAIL) {
-                    await signInWithEmailAndPassword(auth, e, p).catch(async (err) => {
-                         if(err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-                             await createUserWithEmailAndPassword(auth, e, p);
-                         }
-                    });
-                } else { alert("User nahi mila!"); }
-            } catch (error) { alert("Error: " + error.message); }
-        };
-
-        onAuthStateChanged(auth, u => {
-            if(u) {
-                me = u;
-                document.getElementById('login-screen').classList.add('hidden');
-                document.getElementById('main-app').classList.remove('hidden');
-                if(me.email === ADMIN_EMAIL) document.getElementById('admin-icon').classList.remove('hidden');
-                setDoc(doc(db, "presence", me.email), { status: "online", last: serverTimestamp() }, { merge: true });
-                loadList();
-                initZego(me.email); // Connect Zego for calls
-            }
+        zp.setCallInvitationConfig({
+            enableCustomCallInvitationWaitingPage: false,
+            enableCustomCallInvitationIncomingPage: false,
         });
+        console.log("Zego initialized for:", userId);
+    }
 
-        // --- CHAT & USER LIST ---
-        function loadList() {
-            onSnapshot(collection(db, "users"), snap => {
-                const list = document.getElementById('user-list'); list.innerHTML = "";
-                snap.forEach(d => {
-                    const u = d.data();
-                    if(u.email !== me.email) {
-                        const div = document.createElement('div'); div.className = "user-item";
-                        div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${u.email}"> <b>${u.email}</b>`;
-                        div.onclick = () => openChat(u.email);
-                        list.appendChild(div);
-                    }
-                });
-            });
+    // Apply call buttons with a small delay to ensure DOM is ready
+    function setupCallButtons() {
+        if (!zp || !peer) {
+            console.log("Zego or Peer not ready, retrying...");
+            setTimeout(setupCallButtons, 1000);
+            return;
         }
 
-        window.openChat = (email) => {
-            peer = {email}; 
-            document.getElementById('chat-window').classList.add('open');
-            document.getElementById('chat-name').innerText = email;
-            onSnapshot(doc(db, "presence", email), d => {
-                document.getElementById('chat-lastseen').innerText = d.data()?.status === "online" ? "Online" : "Offline";
-            });
-            listen();
-            setupCallButtons(); // Connect call buttons to this peer
-        };
+        const audioBtn = document.getElementById('audio-call-btn');
+        const videoBtn = document.getElementById('video-call-btn');
 
-        function listen() {
-            const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
-            const q = query(collection(db, "messages"), where("cid", "==", cid), orderBy("time", "asc"));
-            onSnapshot(q, snap => {
-                const area = document.getElementById('msg-area'); area.innerHTML = "";
-                snap.forEach(d => {
-                    const m = d.data();
-                    const div = document.createElement('div');
-                    div.className = `msg ${m.sender === me.email ? 'sent' : 'received'}`;
-                    let body = m.type === "image" ? `<img src="${m.img}" style="width:100%; border-radius:5px; cursor:pointer;" onclick="window.openPreview('${m.img}')">` : `<div>${m.text}</div>`;
-                    div.innerHTML = `${body}<div class="msg-meta">${m.dt} ${m.sender === me.email ? `<i class="fas fa-check-double ${m.read ? 'blue-tick' : ''}"></i>` : ''}</div>`;
-                    area.appendChild(div);
-                });
-                area.scrollTop = area.scrollHeight;
+        if(audioBtn && videoBtn) {
+            zp.bindAudioCallInvitation(audioBtn, {
+                invitees: [{ userID: peer.email, userName: peer.email }]
             });
+            zp.bindVideoCallInvitation(videoBtn, {
+                invitees: [{ userID: peer.email, userName: peer.email }]
+            });
+            console.log("Call buttons bound to peer:", peer.email);
         }
+    }
 
-        window.sendMsg = async () => {
-            const inp = document.getElementById('m-input'); if(!inp.value) return;
-            const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
-            await addDoc(collection(db, "messages"), {
-                cid, sender: me.email, text: inp.value, type: "text", time: Date.now(), read: false,
-                dt: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
-            });
-            inp.value = "";
-        };
+    // --- AUTH LOGIC ---
+    window.doLogin = async () => {
+        const e = document.getElementById('l-email').value.trim();
+        const p = document.getElementById('l-pass').value.trim();
+        if(!e || !p) return alert("Email/Pass bhariye!");
+        try {
+            const uSnap = await getDoc(doc(db, "users", e));
+            if(uSnap.exists() || e === ADMIN_EMAIL) {
+                await signInWithEmailAndPassword(auth, e, p).catch(async (err) => {
+                     if(err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+                         await createUserWithEmailAndPassword(auth, e, p);
+                     }
+                });
+            } else { alert("User nahi mila!"); }
+        } catch (error) { alert("Error: " + error.message); }
+    };
 
-        // --- ADMIN HELPERS ---
-        window.showAdmin = async () => {
-            document.getElementById('admin-panel').classList.remove('hidden');
-            const snap = await getDocs(collection(db, "users"));
-            const div = document.getElementById('admin-user-list'); div.innerHTML = "";
+    onAuthStateChanged(auth, u => {
+        if(u) {
+            me = u;
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+            if(me.email === ADMIN_EMAIL) document.getElementById('admin-icon').classList.remove('hidden');
+            setDoc(doc(db, "presence", me.email), { status: "online", last: serverTimestamp() }, { merge: true });
+            loadList();
+            initZego(me.email); 
+        }
+    });
+
+    // --- CHAT & USER LIST ---
+    function loadList() {
+        onSnapshot(collection(db, "users"), snap => {
+            const list = document.getElementById('user-list'); list.innerHTML = "";
             snap.forEach(d => {
                 const u = d.data();
-                div.innerHTML += `<div style="background:white; padding:10px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;">
-                    <span>${u.email}</span>
-                    <i class="fas fa-trash" style="color:red; cursor:pointer;" onclick="window.delUser('${u.email}')"></i>
-                </div>`;
+                if(u.email !== me.email) {
+                    const div = document.createElement('div'); div.className = "user-item";
+                    div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${u.email}"> <b>${u.email}</b>`;
+                    div.onclick = () => window.openChat(u.email);
+                    list.appendChild(div);
+                }
             });
-        };
+        });
+    }
 
-        window.createUser = async () => {
-            const e = document.getElementById('new-user-email').value.trim();
-            const p = document.getElementById('new-user-pass').value.trim();
-            if(!e || p.length < 6) return alert("Data sahi dalein!");
-            await setDoc(doc(db, "users", e), { email: e, password: p });
-            window.showAdmin();
-        };
+    window.openChat = (email) => {
+        peer = {email}; 
+        document.getElementById('chat-window').classList.add('open');
+        document.getElementById('chat-name').innerText = email;
+        onSnapshot(doc(db, "presence", email), d => {
+            document.getElementById('chat-lastseen').innerText = d.data()?.status === "online" ? "Online" : "Offline";
+        });
+        listen();
+        
+        // Delay ensures the chat window is rendered before binding
+        setTimeout(setupCallButtons, 500); 
+    };
 
-        window.logout = () => { signOut(auth).then(()=>location.reload()); };
-        window.closeChat = () => { document.getElementById('chat-window').classList.remove('open'); };
-    </script>
+    function listen() {
+        const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
+        const q = query(collection(db, "messages"), where("cid", "==", cid), orderBy("time", "asc"));
+        onSnapshot(q, snap => {
+            const area = document.getElementById('msg-area'); area.innerHTML = "";
+            snap.forEach(d => {
+                const m = d.data();
+                const div = document.createElement('div');
+                div.className = `msg ${m.sender === me.email ? 'sent' : 'received'}`;
+                let body = m.type === "image" ? `<img src="${m.img}" style="width:100%; border-radius:5px; cursor:pointer;" onclick="window.openPreview('${m.img}')">` : `<div>${m.text}</div>`;
+                div.innerHTML = `${body}<div class="msg-meta">${m.dt} ${m.sender === me.email ? `<i class="fas fa-check-double ${m.read ? 'blue-tick' : ''}"></i>` : ''}</div>`;
+                area.appendChild(div);
+            });
+            area.scrollTop = area.scrollHeight;
+        });
+    }
+
+    window.sendMsg = async () => {
+        const inp = document.getElementById('m-input'); if(!inp.value) return;
+        const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
+        await addDoc(collection(db, "messages"), {
+            cid, sender: me.email, text: inp.value, type: "text", time: Date.now(), read: false,
+            dt: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+        });
+        inp.value = "";
+    };
+
+    window.showAdmin = async () => {
+        document.getElementById('admin-panel').classList.remove('hidden');
+        const snap = await getDocs(collection(db, "users"));
+        const div = document.getElementById('admin-user-list'); div.innerHTML = "";
+        snap.forEach(d => {
+            const u = d.data();
+            div.innerHTML += `<div style="background:white; padding:10px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;">
+                <span>${u.email}</span>
+                <i class="fas fa-trash" style="color:red; cursor:pointer;" onclick="window.delUser('${u.email}')"></i>
+            </div>`;
+        });
+    };
+
+    window.createUser = async () => {
+        const e = document.getElementById('new-user-email').value.trim();
+        const p = document.getElementById('new-user-pass').value.trim();
+        if(!e || p.length < 6) return alert("Data sahi dalein!");
+        await setDoc(doc(db, "users", e), { email: e, password: p });
+        window.showAdmin();
+    };
+
+    window.logout = () => { signOut(auth).then(()=>location.reload()); };
+    window.closeChat = () => { document.getElementById('chat-window').classList.remove('open'); };
+</script>
 </body>
 </html>
+
