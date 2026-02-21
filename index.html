@@ -1,37 +1,41 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WhatsApp Pro - WebRTC</title>
+<title>WhatsApp Pro WebRTC</title>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
 <style>
-:root { --wa-teal:#075E54; --wa-green:#25D366; --wa-blue:#34B7F1; --wa-bg:#efe7de;}
-*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}
-body{background:#dadbd3;height:100vh;overflow:hidden;display:flex;flex-direction:column}
-.hidden{display:none!important}
-header{background:var(--wa-teal);color:white;padding:12px 15px;display:flex;justify-content:space-between;align-items:center}
-#chat-window{position:fixed;inset:0;background:var(--wa-bg);z-index:2000;display:flex;flex-direction:column;transform:translateX(100%);transition:.3s}
+:root { --wa-teal:#075E54; --wa-green:#25D366; --wa-bg:#efe7de;}
+*{margin:0;padding:0;box-sizing:border-box;font-family:sans-serif}
+body{background:#dadbd3;height:100vh;overflow:hidden}
+.hidden{display:none}
+header{background:var(--wa-teal);color:white;padding:15px;display:flex;justify-content:space-between}
+#chat-window{position:fixed;inset:0;background:var(--wa-bg);display:flex;flex-direction:column;transform:translateX(100%);transition:.3s}
 #chat-window.open{transform:translateX(0)}
-.msg-area{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;background:#efe7de}
-.msg{padding:8px 12px;border-radius:8px;margin-bottom:5px;max-width:80%;font-size:15px}
+.msg-area{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column}
+.msg{padding:8px 12px;border-radius:8px;margin-bottom:5px;max-width:75%}
 .sent{align-self:flex-end;background:#dcf8c6}
 .received{align-self:flex-start;background:white}
 .user-item{display:flex;align-items:center;padding:15px;background:white;border-bottom:1px solid #eee;cursor:pointer}
 .user-item img{width:45px;height:45px;border-radius:50%;margin-right:15px}
+#call-screen{position:fixed;inset:0;background:black;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:9999}
+#remoteVideo{width:100%;height:100%;object-fit:cover}
+#localVideo{position:absolute;width:120px;height:160px;bottom:20px;right:20px;border:2px solid white}
+#endBtn{position:absolute;bottom:40px;background:red;color:white;border:none;padding:15px 30px;border-radius:30px}
 </style>
 </head>
 
 <body>
 
-<div id="login-screen" style="position:fixed;inset:0;background:var(--wa-teal);display:flex;align-items:center;justify-content:center;">
+<div id="login-screen" style="position:fixed;inset:0;background:#075E54;display:flex;align-items:center;justify-content:center;">
 <div style="background:white;padding:30px;border-radius:10px;width:90%;max-width:350px;">
-<h2 style="text-align:center;color:var(--wa-teal);margin-bottom:20px;">WhatsApp Pro</h2>
-<input type="email" id="l-email" placeholder="Email" style="width:100%;padding:12px;margin-bottom:10px;">
-<input type="password" id="l-pass" placeholder="Password" style="width:100%;padding:12px;margin-bottom:10px;">
-<button onclick="doLogin()" style="width:100%;padding:12px;background:var(--wa-green);color:white;border:none;">LOGIN</button>
+<h2 style="text-align:center;color:#075E54;">WhatsApp Pro</h2>
+<input type="email" id="l-email" placeholder="Email" style="width:100%;padding:10px;margin:10px 0;">
+<input type="password" id="l-pass" placeholder="Password" style="width:100%;padding:10px;margin-bottom:10px;">
+<button onclick="doLogin()" style="width:100%;padding:12px;background:#25D366;color:white;border:none;">LOGIN</button>
 </div>
 </div>
 
@@ -44,50 +48,48 @@ header{background:var(--wa-teal);color:white;padding:12px 15px;display:flex;just
 </div>
 
 <div id="chat-window">
-<div style="background:var(--wa-teal);color:white;padding:10px;display:flex;align-items:center;">
-<i class="fas fa-arrow-left" onclick="closeChat()" style="padding:10px;cursor:pointer;"></i>
-<div style="flex:1;margin-left:10px;">
-<b id="chat-name"></b>
-</div>
+<div style="background:#075E54;color:white;padding:10px;display:flex;align-items:center;">
+<i class="fas fa-arrow-left" onclick="closeChat()" style="margin-right:10px;cursor:pointer;"></i>
+<b id="chat-name" style="flex:1;"></b>
 <i class="fas fa-phone" onclick="startCall('audio')" style="margin-right:20px;cursor:pointer;"></i>
 <i class="fas fa-video" onclick="startCall('video')" style="cursor:pointer;"></i>
 </div>
 <div id="msg-area" class="msg-area"></div>
 <div style="padding:10px;background:#f0f0f0;display:flex;">
-<input type="text" id="m-input" placeholder="Type a message..." style="flex:1;padding:10px;">
-<i class="fas fa-paper-plane" onclick="sendMsg()" style="color:var(--wa-teal);font-size:22px;cursor:pointer;"></i>
+<input type="text" id="m-input" placeholder="Type message" style="flex:1;padding:10px;">
+<i class="fas fa-paper-plane" onclick="sendMsg()" style="color:#075E54;font-size:22px;margin-left:10px;cursor:pointer;"></i>
 </div>
+</div>
+
+<div id="call-screen">
+<video id="remoteVideo" autoplay playsinline></video>
+<video id="localVideo" autoplay playsinline muted></video>
+<button id="endBtn" onclick="endCall()">End Call</button>
 </div>
 
 <script type="module">
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } 
-from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, doc, setDoc, getDocs } 
-from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, doc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-/* FIREBASE CONFIG */
-const firebaseConfig = {
+const firebaseConfig={
 apiKey:"AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs",
 authDomain:"my-chat-project-4e376.firebaseapp.com",
 projectId:"my-chat-project-4e376",
 appId:"1:264696350288:web:8c0367e6dce7c5f5517355"
 };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+const app=initializeApp(firebaseConfig);
+const auth=getAuth(app);
+const db=getFirestore(app);
 
-let me=null,peer=null;
-let pc=null;
+let me=null,peer=null,pc=null,localStream=null,remoteStream=null;
 const servers={iceServers:[{urls:"stun:stun.l.google.com:19302"}]};
 
-/* LOGIN */
 window.doLogin=async()=>{
-const e=document.getElementById("l-email").value;
-const p=document.getElementById("l-pass").value;
-await signInWithEmailAndPassword(auth,e,p);
+await signInWithEmailAndPassword(auth,
+document.getElementById("l-email").value,
+document.getElementById("l-pass").value);
 };
 
 onAuthStateChanged(auth,user=>{
@@ -100,7 +102,6 @@ listenIncoming();
 }
 });
 
-/* USERS */
 function loadUsers(){
 onSnapshot(collection(db,"users"),snap=>{
 const list=document.getElementById("user-list");
@@ -128,7 +129,6 @@ function closeChat(){
 document.getElementById("chat-window").classList.remove("open");
 }
 
-/* MESSAGES */
 function listenMessages(){
 const cid=me.email<peer?me.email+"_"+peer:peer+"_"+me.email;
 const q=query(collection(db,"messages"),where("cid","==",cid),orderBy("time"));
@@ -154,26 +154,36 @@ cid,sender:me.email,text:val,time:Date.now()
 document.getElementById("m-input").value="";
 };
 
-/* ================= WEBRTC ================= */
-
 window.startCall=async(mode)=>{
 if(!peer)return alert("Select user");
 
 const callId=me.email<peer?me.email+"_"+peer:peer+"_"+me.email;
+document.getElementById("call-screen").style.display="flex";
+
 pc=new RTCPeerConnection(servers);
 
-const stream=await navigator.mediaDevices.getUserMedia({
-video:mode==="video",
-audio:true
-});
-stream.getTracks().forEach(track=>pc.addTrack(track,stream));
+localStream=await navigator.mediaDevices.getUserMedia({video:mode==="video",audio:true});
+document.getElementById("localVideo").srcObject=localStream;
+
+remoteStream=new MediaStream();
+document.getElementById("remoteVideo").srcObject=remoteStream;
+
+localStream.getTracks().forEach(track=>pc.addTrack(track,localStream));
+
+pc.ontrack=e=>{
+e.streams[0].getTracks().forEach(track=>remoteStream.addTrack(track));
+};
+
+pc.onicecandidate=e=>{
+if(e.candidate){
+addDoc(collection(db,"candidates"),{callId,candidate:e.candidate.toJSON()});
+}
+};
 
 const offer=await pc.createOffer();
 await pc.setLocalDescription(offer);
 
-await setDoc(doc(db,"calls",callId),{
-offer,caller:me.email,receiver:peer,mode
-});
+await setDoc(doc(db,"calls",callId),{offer,caller:me.email,receiver:peer,mode});
 
 onSnapshot(doc(db,"calls",callId),async snap=>{
 const data=snap.data();
@@ -182,40 +192,62 @@ await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
 }
 });
 
-pc.onicecandidate=e=>{
-if(e.candidate){
-setDoc(doc(db,"calls",callId),{candidate:e.candidate},{merge:true});
+const cq=query(collection(db,"candidates"),where("callId","==",callId));
+onSnapshot(cq,snap=>{
+snap.docChanges().forEach(change=>{
+if(change.type==="added"){
+pc.addIceCandidate(new RTCIceCandidate(change.doc.data().candidate));
 }
+});
+});
 };
-
-alert("Calling "+peer);
-};
-
-/* INCOMING */
 
 function listenIncoming(){
 const q=query(collection(db,"calls"),where("receiver","==",me.email));
 onSnapshot(q,snap=>{
-snap.forEach(async d=>{
-const data=d.data();
+snap.docChanges().forEach(async change=>{
+if(change.type==="added"){
+const data=change.doc.data();
 if(confirm("Incoming call from "+data.caller)){
+const callId=change.doc.id;
+document.getElementById("call-screen").style.display="flex";
 pc=new RTCPeerConnection(servers);
-const stream=await navigator.mediaDevices.getUserMedia({
-video:data.mode==="video",
-audio:true
-});
-stream.getTracks().forEach(track=>pc.addTrack(track,stream));
+
+localStream=await navigator.mediaDevices.getUserMedia({video:data.mode==="video",audio:true});
+document.getElementById("localVideo").srcObject=localStream;
+
+remoteStream=new MediaStream();
+document.getElementById("remoteVideo").srcObject=remoteStream;
+
+localStream.getTracks().forEach(track=>pc.addTrack(track,localStream));
+
+pc.ontrack=e=>{
+e.streams[0].getTracks().forEach(track=>remoteStream.addTrack(track));
+};
+
+pc.onicecandidate=e=>{
+if(e.candidate){
+addDoc(collection(db,"candidates"),{callId,candidate:e.candidate.toJSON()});
+}
+};
+
 await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
 const answer=await pc.createAnswer();
 await pc.setLocalDescription(answer);
-await setDoc(d.ref,{answer},{merge:true});
+await updateDoc(doc(db,"calls",callId),{answer});
+}
 }
 });
 });
 }
+
+window.endCall=()=>{
+if(pc)pc.close();
+if(localStream)localStream.getTracks().forEach(t=>t.stop());
+document.getElementById("call-screen").style.display="none";
+};
 
 window.logout=()=>{signOut(auth).then(()=>location.reload())};
-
 </script>
 </body>
 </html>
