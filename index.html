@@ -101,197 +101,233 @@
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, doc, setDoc, deleteDoc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+   <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, doc, setDoc, deleteDoc, updateDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        const firebaseConfig = { 
-            apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
-            authDomain: "my-chat-project-4e376.firebaseapp.com", 
-            projectId: "my-chat-project-4e376", 
-            appId: "1:264696350288:web:8c0367e6dce7c5f5517355"
+    const firebaseConfig = { 
+        apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
+        authDomain: "my-chat-project-4e376.firebaseapp.com", 
+        projectId: "my-chat-project-4e376", 
+        appId: "1:264696350288:web:8c0367e6dce7c5f5517355"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let me = null, peer = null, localStream = null, pc = null;
+    let currentCallDocId = null;
+
+    const servers = { iceServers: [{ urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }] };
+
+    // --- WebRTC Logic (Caller) ---
+    window.startCall = async (mode) => {
+        if(!peer) return alert("Please select a user first!");
+        
+        const callDoc = doc(collection(db, "calls"));
+        currentCallDocId = callDoc.id;
+
+        pc = new RTCPeerConnection(servers);
+        localStream = await navigator.mediaDevices.getUserMedia({ video: mode === 'video', audio: true });
+        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+        
+        document.getElementById('local-video').srcObject = localStream;
+        document.getElementById('call-screen').style.display = 'flex';
+        document.getElementById('call-user-name').innerText = peer.email;
+
+        pc.ontrack = (event) => {
+            document.getElementById('remote-video').srcObject = event.streams[0];
         };
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-
-        let me = null, peer = null, localStream = null, remoteStream = null, pc = null;
-        let currentCallDocId = null;
-
-        const servers = { iceServers: [{ urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }] };
-
-        // --- WebRTC Logic ---
-
-        window.startCall = async (mode) => {
-            const callDoc = doc(collection(db, "calls"));
-            currentCallDocId = callDoc.id;
-
-            pc = new RTCPeerConnection(servers);
-            localStream = await navigator.mediaDevices.getUserMedia({ video: mode === 'video', audio: true });
-            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-            
-            document.getElementById('local-video').srcObject = localStream;
-            document.getElementById('call-screen').style.display = 'flex';
-            document.getElementById('call-user-name').innerText = peer.email;
-
-            pc.ontrack = (event) => {
-                document.getElementById('remote-video').srcObject = event.streams[0];
-            };
-
-            const offerCandidates = collection(callDoc, "offerCandidates");
-            pc.onicecandidate = (event) => {
-                if (event.candidate) addDoc(offerCandidates, event.candidate.toJSON());
-            };
-
-            const offerDescription = await pc.createOffer();
-            await pc.setLocalDescription(offerDescription);
-
-            await setDoc(callDoc, {
-                offer: { type: offerDescription.type, sdp: offerDescription.sdp },
-                to: peer.email, from: me.email, status: 'ringing', mode: mode
-            });
-
-            onSnapshot(callDoc, (snap) => {
-                const data = snap.data();
-                if (!pc.currentRemoteDescription && data?.answer) {
-                    pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-                    document.getElementById('call-timer').innerText = "Connected";
-                }
-                if (data?.status === 'ended') window.endCall(false);
-            });
-
-            onSnapshot(collection(callDoc, "answerCandidates"), (snap) => {
-                snap.docChanges().forEach((change) => {
-                    if (change.type === 'added') pc.addIceCandidate(new RTCIceCandidate(change.doc.data()));
-                });
-            });
+        const offerCandidates = collection(callDoc, "offerCandidates");
+        pc.onicecandidate = (event) => {
+            if (event.candidate) addDoc(offerCandidates, event.candidate.toJSON());
         };
 
-        function listenForInbound() {
-            const q = query(collection(db, "calls"), where("to", "==", me.email), where("status", "==", "ringing"));
-            onSnapshot(q, (snap) => {
-                snap.docChanges().forEach(async (change) => {
-                    if (change.type === "added") {
-                        const data = change.doc.data();
-                        currentCallDocId = change.doc.id;
-                        document.getElementById('call-screen').style.display = 'flex';
-                        document.getElementById('call-user-name').innerText = data.from;
-                        document.getElementById('btn-answer').classList.remove('hidden');
-                        window.incomingCallData = data;
-                    }
-                });
-            });
-        }
+        const offerDescription = await pc.createOffer();
+        await pc.setLocalDescription(offerDescription);
 
-        window.answerCall = async () => {
-            const data = window.incomingCallData;
-            document.getElementById('btn-answer').classList.add('hidden');
-            document.getElementById('call-timer').innerText = "Connecting...";
-
-            pc = new RTCPeerConnection(servers);
-            localStream = await navigator.mediaDevices.getUserMedia({ video: data.mode === 'video', audio: true });
-            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-            document.getElementById('local-video').srcObject = localStream;
-
-            pc.ontrack = (event) => {
-                document.getElementById('remote-video').srcObject = event.streams[0];
-            };
-
-            const callDoc = doc(db, "calls", currentCallDocId);
-            const answerCandidates = collection(callDoc, "answerCandidates");
-            const offerCandidates = collection(callDoc, "offerCandidates");
-
-            pc.onicecandidate = (event) => {
-                if (event.candidate) addDoc(answerCandidates, event.candidate.toJSON());
-            };
-
-            await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-            const answerDescription = await pc.createAnswer();
-            await pc.setLocalDescription(answerDescription);
-
-            await updateDoc(callDoc, {
-                answer: { type: answerDescription.type, sdp: answerDescription.sdp },
-                status: 'active'
-            });
-
-            onSnapshot(offerCandidates, (snap) => {
-                snap.docChanges().forEach((change) => {
-                    if (change.type === 'added') pc.addIceCandidate(new RTCIceCandidate(change.doc.data()));
-                });
-            });
-            
-            onSnapshot(callDoc, (snap) => { if (snap.data()?.status === 'ended') window.endCall(false); });
-        };
-
-        window.endCall = async (notify = true) => {
-            if (localStream) localStream.getTracks().forEach(t => t.stop());
-            if (pc) pc.close();
-            document.getElementById('call-screen').style.display = 'none';
-            if (notify && currentCallDocId) {
-                await updateDoc(doc(db, "calls", currentCallDocId), { status: 'ended' });
-            }
-            pc = null; localStream = null;
-        };
-
-        // --- Auth & Messaging ---
-        window.doLogin = async () => {
-            const e = document.getElementById('l-email').value;
-            const p = document.getElementById('l-pass').value;
-            signInWithEmailAndPassword(auth, e, p).catch(() => alert("Error"));
-        };
-
-        onAuthStateChanged(auth, u => {
-            if(u) {
-                me = u;
-                document.getElementById('login-screen').classList.add('hidden');
-                document.getElementById('main-app').classList.remove('hidden');
-                if(me.email === "admin@gmail.com") document.getElementById('admin-icon').classList.remove('hidden');
-                listenForInbound();
-                loadUsers();
-            }
+        await setDoc(callDoc, {
+            offer: { type: offerDescription.type, sdp: offerDescription.sdp },
+            to: peer.email, from: me.email, status: 'ringing', mode: mode
         });
 
-        function loadUsers() {
-            onSnapshot(collection(db, "users"), snap => {
-                const list = document.getElementById('user-list'); list.innerHTML = "";
-                snap.forEach(d => {
-                    if(d.data().email !== me.email) {
-                        const div = document.createElement('div'); div.className = "user-item";
-                        div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${d.data().email}"> <b>${d.data().email}</b>`;
-                        div.onclick = () => { peer = d.data(); document.getElementById('chat-window').classList.add('open'); document.getElementById('chat-name').innerText = peer.email; listenMessages(); };
-                        list.appendChild(div);
-                    }
-                });
-            });
-        }
+        // Listen for Answer
+        onSnapshot(callDoc, (snap) => {
+            const data = snap.data();
+            if (!pc.currentRemoteDescription && data?.answer) {
+                pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+                document.getElementById('call-timer').innerText = "Connected";
+            }
+            if (data?.status === 'ended') window.endCall(false);
+        });
 
-        function listenMessages() {
-            const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
-            const q = query(collection(db, "messages"), where("cid", "==", cid), orderBy("time", "asc"));
-            onSnapshot(q, snap => {
-                const area = document.getElementById('msg-area'); area.innerHTML = "";
-                snap.forEach(d => {
-                    const m = d.data();
-                    const div = document.createElement('div');
-                    div.className = `msg ${m.sender === me.email ? 'sent' : 'received'}`;
-                    div.innerText = m.text;
-                    area.appendChild(div);
-                });
-                area.scrollTop = area.scrollHeight;
+        // Listen for remote ICE candidates
+        onSnapshot(collection(callDoc, "answerCandidates"), (snap) => {
+            snap.docChanges().forEach((change) => {
+                if (change.type === 'added') pc.addIceCandidate(new RTCIceCandidate(change.doc.data()));
             });
-        }
+        });
+    };
 
-        window.sendMsg = async () => {
-            const inp = document.getElementById('m-input');
-            const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
-            await addDoc(collection(db, "messages"), { cid, sender: me.email, text: inp.value, time: Date.now() });
-            inp.value = "";
+    // --- WebRTC Logic (Receiver) ---
+    window.answerCall = async () => {
+        const data = window.incomingCallData;
+        document.getElementById('btn-answer').classList.add('hidden');
+        document.getElementById('call-timer').innerText = "Connecting...";
+
+        pc = new RTCPeerConnection(servers);
+        localStream = await navigator.mediaDevices.getUserMedia({ video: data.mode === 'video', audio: true });
+        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+        document.getElementById('local-video').srcObject = localStream;
+
+        pc.ontrack = (event) => {
+            document.getElementById('remote-video').srcObject = event.streams[0];
         };
 
-        window.closeChat = () => { document.getElementById('chat-window').classList.remove('open'); peer = null; };
-        window.logout = () => signOut(auth).then(() => location.reload());
-    </script>
+        const callDoc = doc(db, "calls", currentCallDocId);
+        const answerCandidates = collection(callDoc, "answerCandidates");
+        const offerCandidates = collection(callDoc, "offerCandidates");
+
+        pc.onicecandidate = (event) => {
+            if (event.candidate) addDoc(answerCandidates, event.candidate.toJSON());
+        };
+
+        await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+        const answerDescription = await pc.createAnswer();
+        await pc.setLocalDescription(answerDescription);
+
+        await updateDoc(callDoc, {
+            answer: { type: answerDescription.type, sdp: answerDescription.sdp },
+            status: 'active'
+        });
+
+        onSnapshot(offerCandidates, (snap) => {
+            snap.docChanges().forEach((change) => {
+                if (change.type === 'added') pc.addIceCandidate(new RTCIceCandidate(change.doc.data()));
+            });
+        });
+        
+        onSnapshot(callDoc, (snap) => { if (snap.data()?.status === 'ended') window.endCall(false); });
+    };
+
+    window.endCall = async (notify = true) => {
+        if (localStream) localStream.getTracks().forEach(t => t.stop());
+        if (pc) pc.close();
+        document.getElementById('call-screen').style.display = 'none';
+        if (notify && currentCallDocId) {
+            await updateDoc(doc(db, "calls", currentCallDocId), { status: 'ended' });
+        }
+        pc = null; localStream = null;
+        document.getElementById('call-timer').innerText = "Incoming Call...";
+    };
+
+    // --- Inbound Call Listener ---
+    function listenForInbound() {
+        const q = query(collection(db, "calls"), where("to", "==", me.email), where("status", "==", "ringing"));
+        onSnapshot(q, (snap) => {
+            snap.docChanges().forEach(async (change) => {
+                if (change.type === "added") {
+                    const data = change.doc.data();
+                    currentCallDocId = change.doc.id;
+                    document.getElementById('call-screen').style.display = 'flex';
+                    document.getElementById('call-user-name').innerText = data.from;
+                    document.getElementById('btn-answer').classList.remove('hidden');
+                    window.incomingCallData = data;
+                }
+            });
+        });
+    }
+
+    // --- Admin Dashboard Logic ---
+    window.showAdmin = async () => {
+        document.getElementById('admin-panel').classList.remove('hidden');
+        const snap = await getDocs(collection(db, "users"));
+        const div = document.getElementById('admin-user-list'); 
+        div.innerHTML = "<h3 style='padding:10px;'>Registered Users</h3>";
+        snap.forEach(d => {
+            const u = d.data();
+            div.innerHTML += `
+                <div style="background:white; padding:15px; margin:5px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>${u.email}</span>
+                    <i class="fas fa-trash" style="color:red; cursor:pointer;" onclick="window.delUser('${d.id}')"></i>
+                </div>`;
+        });
+    };
+
+    window.delUser = async (id) => {
+        if(confirm("Delete this user?")) {
+            await deleteDoc(doc(db, "users", id));
+            window.showAdmin();
+        }
+    };
+
+    // --- Auth & Chat ---
+    window.doLogin = async () => {
+        const e = document.getElementById('l-email').value;
+        const p = document.getElementById('l-pass').value;
+        signInWithEmailAndPassword(auth, e, p).catch(err => alert("Login Failed: " + err.message));
+    };
+
+    onAuthStateChanged(auth, u => {
+        if(u) {
+            me = u;
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+            if(me.email === "admin@gmail.com") document.getElementById('admin-icon').classList.remove('hidden');
+            listenForInbound();
+            loadUsers();
+        }
+    });
+
+    function loadUsers() {
+        onSnapshot(collection(db, "users"), snap => {
+            const list = document.getElementById('user-list'); list.innerHTML = "";
+            snap.forEach(d => {
+                if(d.data().email !== me.email) {
+                    const div = document.createElement('div'); div.className = "user-item";
+                    div.innerHTML = `<img src="https://ui-avatars.com/api/?name=${d.data().email}"> <b>${d.data().email}</b>`;
+                    div.onclick = () => { 
+                        peer = d.data(); 
+                        document.getElementById('chat-window').classList.add('open'); 
+                        document.getElementById('chat-name').innerText = peer.email; 
+                        listenMessages(); 
+                    };
+                    list.appendChild(div);
+                }
+            });
+        });
+    }
+
+    function listenMessages() {
+        const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
+        const q = query(collection(db, "messages"), where("cid", "==", cid), orderBy("time", "asc"));
+        onSnapshot(q, snap => {
+            const area = document.getElementById('msg-area'); area.innerHTML = "";
+            snap.forEach(d => {
+                const m = d.data();
+                const div = document.createElement('div');
+                div.className = `msg ${m.sender === me.email ? 'sent' : 'received'}`;
+                div.innerText = m.text;
+                area.appendChild(div);
+            });
+            area.scrollTop = area.scrollHeight;
+        });
+    }
+
+    window.sendMsg = async () => {
+        const inp = document.getElementById('m-input');
+        if(!inp.value.trim()) return;
+        const cid = me.email < peer.email ? me.email + "_" + peer.email : peer.email + "_" + me.email;
+        await addDoc(collection(db, "messages"), { cid, sender: me.email, text: inp.value, time: Date.now() });
+        inp.value = "";
+    };
+
+    window.closeChat = () => { document.getElementById('chat-window').classList.remove('open'); peer = null; };
+    window.logout = () => signOut(auth).then(() => location.reload());
+</script>
 </body>
 </html>
+
