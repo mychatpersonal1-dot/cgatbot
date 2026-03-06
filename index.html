@@ -115,34 +115,44 @@
         const ADMIN_EMAIL = "admin@gmail.com"; 
         const notifySound = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
 
-        // --- ZEGO CLOUD SYSTEM (FIXED) ---
-        async function initZego(userEmail) {
-            const appID = 1452296766; 
-            const serverSecret = "66f773957cc433e5456f9185a1a1f0f5"; 
-            
-            // UserID must be a string. Email works fine.
-            const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, null, userEmail, userEmail);
-            zp = ZegoUIKitPrebuilt.create(kitToken);
+       // --- ZEGO CLOUD SYSTEM (UPDATED) ---
+async function initZego(userEmail) {
+    const appID = 1452296766; 
+    const serverSecret = "66f773957cc433e5456f9185a1a1f0f5"; 
+    
+    // Kit Token Generate karna
+    const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, null, userEmail, userEmail);
+    
+    // Zego instance create karna
+    zp = ZegoUIKitPrebuilt.create(kitToken);
 
-            // Ye plugins call receiving ke liye MUST hain
-            zp.addPlugins({ ZegoInvitationTypeVoiceCall: 0, ZegoInvitationTypeVideoCall: 1 });
-            
-            console.log("Zego Initialized for:", userEmail);
-        }
+    // Call invitation plugin ko active karna (Sabse Zaroori)
+    zp.addPlugins({ ZegoInvitationTypeVoiceCall: 0, ZegoInvitationTypeVideoCall: 1 });
+    
+    console.log("Zego System Ready for:", userEmail);
+}
 
-        window.startCall = (mode) => {
-            if (!peer || !peer.email) return alert("Pehle kisi se chat start karein!");
-            
-            zp.sendCallInvitation({
-                invitees: [{ userID: peer.email, userName: peer.email }],
-                isVideoCall: mode === 'video',
-                timeout: 60,
-            }).then(res => {
-                console.log("Call Invitation Sent");
-            }).catch(err => {
-                alert("Call nahi lag saki: " + err);
-            });
-        };
+// Global scope mein function daalna taaki HTML button ise pehchan sake
+window.startCall = async (mode) => {
+    console.log("Call button clicked! Mode:", mode); // Check karein console mein ye print ho raha hai ya nahi
+    
+    if (!peer || !peer.email) {
+        alert("Pehle kisi user ka chat box open karein!");
+        return;
+    }
+
+    try {
+        const response = await zp.sendCallInvitation({
+            invitees: [{ userID: peer.email, userName: peer.email }],
+            isVideoCall: mode === 'video',
+            timeout: 60,
+        });
+        console.log("Call Request Sent Successfully:", response);
+    } catch (err) {
+        console.error("Call Error:", err);
+        alert("Call start nahi ho saki. Console check karein.");
+    }
+};
 
         // --- AUTH LOGIC ---
         window.doLogin = async () => {
@@ -310,3 +320,4 @@
     </script>
 </body>
 </html>
+
