@@ -3,63 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WhatsApp Pro - Fixed WebRTC</title>
+    <title>WhatsApp Pro - Full WebRTC Logic</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root { --wa-teal: #075E54; --wa-green: #25D366; --wa-bg: #efe7de; }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background: #dadbd3; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         .hidden { display: none !important; }
-        
-        /* Video Call UI */
+        header { background: var(--wa-teal); color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; }
+        #chat-window { position: fixed; inset: 0; background: var(--wa-bg); z-index: 2000; transform: translateX(100%); transition: 0.3s ease; }
+        #chat-window.open { transform: translateX(0); }
+        .msg-area { height: 80vh; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; }
+        .msg { padding: 8px 12px; border-radius: 8px; margin-bottom: 5px; max-width: 80%; }
+        .sent { align-self: flex-end; background: #dcf8c6; }
+        .received { align-self: flex-start; background: white; }
         #call-screen { position: fixed; inset: 0; background: #075e54; z-index: 9999; display: none; flex-direction: column; align-items: center; color: white; padding: 20px; }
-        .video-container { position: relative; width: 100%; max-width: 400px; height: 70vh; background: #000; border-radius: 20px; overflow: hidden; }
+        .video-container { width: 100%; max-width: 400px; height: 70vh; background: #000; border-radius: 20px; position: relative; }
         #remote-video { width: 100%; height: 100%; object-fit: cover; }
         #local-video { position: absolute; top: 15px; right: 15px; width: 100px; height: 150px; border: 2px solid white; border-radius: 10px; }
-        .call-controls { margin-top: 20px; display: flex; gap: 20px; }
+        .call-controls { margin-top: 30px; display: flex; gap: 20px; }
         .c-btn { width: 65px; height: 65px; border-radius: 50%; border: none; cursor: pointer; color: white; font-size: 24px; }
     </style>
 </head>
 <body>
 
     <div id="call-screen">
-        <h2 id="call-user-name">User</h2>
+        <h2 id="call-user-name">User Name</h2>
         <div class="video-container">
             <video id="remote-video" autoplay playsinline></video>
             <video id="local-video" autoplay playsinline muted></video>
         </div>
         <div class="call-controls">
-            <button class="c-btn" style="background:red" onclick="window.endCall()"><i class="fas fa-phone-slash"></i></button>
-            <button id="btn-answer" class="c-btn hidden" style="background:green" onclick="window.answerCall()"><i class="fas fa-phone"></i></button>
+            <button class="c-btn" style="background:#ff3b30" onclick="window.endCall()"><i class="fas fa-phone-slash"></i></button>
+            <button id="btn-answer" class="c-btn hidden" style="background:#25D366" onclick="window.answerCall()"><i class="fas fa-phone"></i></button>
         </div>
     </div>
 
-    <div id="main-app" class="hidden">...</div>
-
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, doc, setDoc, updateDoc, onSnapshot, addDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-        const firebaseConfig = { 
-            apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
-            projectId: "my-chat-project-4e376" 
-        };
-        const db = getFirestore(initializeApp(firebaseConfig));
+        import { getFirestore, collection, doc, setDoc, updateDoc, onSnapshot, addDoc, getDoc, getDocs, query, where, orderBy, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         
-        let localStream, pc, currentCallDocId;
+        const firebaseConfig = { apiKey: "...", authDomain: "...", projectId: "...", appId: "..." };
+        const db = getFirestore(initializeApp(firebaseConfig));
+        let pc, localStream, currentCallDocId, peerEmail;
         const servers = { iceServers: [{ urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }] };
 
+        // Core Signaling Logic
         window.startCall = async (mode) => {
             localStream = await navigator.mediaDevices.getUserMedia({ video: mode === 'video', audio: true });
             document.getElementById('local-video').srcObject = localStream;
             
             pc = new RTCPeerConnection(servers);
             localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-
-            // Remote stream ko listen karna
-            pc.ontrack = (event) => {
-                document.getElementById('remote-video').srcObject = event.streams[0];
-            };
+            
+            pc.ontrack = (e) => { document.getElementById('remote-video').srcObject = e.streams[0]; };
 
             const callDoc = doc(collection(db, "calls"));
             currentCallDocId = callDoc.id;
@@ -70,8 +67,23 @@
 
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
-            await setDoc(callDoc, { offer: { type: offer.type, sdp: offer.sdp }, status: 'ringing', mode: mode });
+            await setDoc(callDoc, { offer: { type: offer.type, sdp: offer.sdp }, status: 'ringing' });
             
+            // Listen for answer
+            onSnapshot(callDoc, (snap) => {
+                const data = snap.data();
+                if(!pc.currentRemoteDescription && data?.answer) {
+                    pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+                }
+            });
+
+            // Listen for candidates
+            onSnapshot(collection(callDoc, "answerCandidates"), (snap) => {
+                snap.docChanges().forEach(change => {
+                    if(change.type === 'added') pc.addIceCandidate(new RTCIceCandidate(change.doc.data()));
+                });
+            });
+
             document.getElementById('call-screen').style.display = 'flex';
         };
 
@@ -80,7 +92,7 @@
             const data = (await getDoc(callDoc)).data();
 
             pc = new RTCPeerConnection(servers);
-            localStream = await navigator.mediaDevices.getUserMedia({ video: data.mode === 'video', audio: true });
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             document.getElementById('local-video').srcObject = localStream;
             localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
@@ -90,11 +102,18 @@
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             await updateDoc(callDoc, { answer: { type: answer.type, sdp: answer.sdp }, status: 'active' });
+
+            onSnapshot(collection(callDoc, "offerCandidates"), (snap) => {
+                snap.docChanges().forEach(change => {
+                    if(change.type === 'added') pc.addIceCandidate(new RTCIceCandidate(change.doc.data()));
+                });
+            });
         };
 
-        window.endCall = () => {
+        window.endCall = async () => {
             if(localStream) localStream.getTracks().forEach(t => t.stop());
             if(pc) pc.close();
+            if(currentCallDocId) await updateDoc(doc(db, "calls", currentCallDocId), { status: 'ended' });
             document.getElementById('call-screen').style.display = 'none';
         };
     </script>
