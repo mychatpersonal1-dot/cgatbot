@@ -2,87 +2,101 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>WhatsApp Pro - Fixed WebRTC</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        /* CSS Wahi Rakhein jo aapne di thi, bas niche wala part add karein */
+        :root { --wa-teal: #075E54; --wa-green: #25D366; --wa-bg: #efe7de; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: #dadbd3; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         .hidden { display: none !important; }
-        #admin-panel { position: fixed; inset: 0; background: #fff; z-index: 5000; padding: 20px; }
+        
+        /* Video Call UI */
+        #call-screen { position: fixed; inset: 0; background: #075e54; z-index: 9999; display: none; flex-direction: column; align-items: center; color: white; padding: 20px; }
+        .video-container { position: relative; width: 100%; max-width: 400px; height: 70vh; background: #000; border-radius: 20px; overflow: hidden; }
+        #remote-video { width: 100%; height: 100%; object-fit: cover; }
+        #local-video { position: absolute; top: 15px; right: 15px; width: 100px; height: 150px; border: 2px solid white; border-radius: 10px; }
+        .call-controls { margin-top: 20px; display: flex; gap: 20px; }
+        .c-btn { width: 65px; height: 65px; border-radius: 50%; border: none; cursor: pointer; color: white; font-size: 24px; }
     </style>
 </head>
 <body>
+
     <div id="call-screen">
-        <h2 id="call-user-name">User Name</h2>
-        <p id="call-timer">Connecting...</p>
+        <h2 id="call-user-name">User</h2>
         <div class="video-container">
             <video id="remote-video" autoplay playsinline></video>
             <video id="local-video" autoplay playsinline muted></video>
         </div>
         <div class="call-controls">
-            <button class="c-btn hangup" onclick="window.endCall()"><i class="fas fa-phone-slash"></i></button>
-            <button id="btn-answer" class="c-btn answer hidden" onclick="window.answerCall()"><i class="fas fa-phone"></i></button>
+            <button class="c-btn" style="background:red" onclick="window.endCall()"><i class="fas fa-phone-slash"></i></button>
+            <button id="btn-answer" class="c-btn hidden" style="background:green" onclick="window.answerCall()"><i class="fas fa-phone"></i></button>
         </div>
     </div>
 
-    <div id="admin-panel" class="hidden">
-        <h3>Admin Panel</h3>
-        <input type="email" id="new-user-email" placeholder="New User Email">
-        <button onclick="window.createUser()">Register User</button>
-        <div id="admin-user-list"></div>
-    </div>
+    <div id="main-app" class="hidden">...</div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, doc, setDoc, updateDoc, onSnapshot, query, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, updateDoc, onSnapshot, addDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // ... [Aapka firebaseConfig yahan rahega] ...
+        const firebaseConfig = { 
+            apiKey: "AIzaSyDIDlnsjU80luMXAO_JsRJQTMHPhEVpbQs", 
+            projectId: "my-chat-project-4e376" 
+        };
+        const db = getFirestore(initializeApp(firebaseConfig));
+        
+        let localStream, pc, currentCallDocId;
+        const servers = { iceServers: [{ urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }] };
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-
-        let me, peer, localStream, pc;
-
-        // --- CORE FIX: Remote Stream Handling ---
         window.startCall = async (mode) => {
             localStream = await navigator.mediaDevices.getUserMedia({ video: mode === 'video', audio: true });
             document.getElementById('local-video').srcObject = localStream;
             
-            pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun1.l.google.com:19302' }] });
-            
+            pc = new RTCPeerConnection(servers);
             localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-            // CRITICAL FIX: Track arrival handling
+            // Remote stream ko listen karna
             pc.ontrack = (event) => {
                 document.getElementById('remote-video').srcObject = event.streams[0];
             };
 
+            const callDoc = doc(collection(db, "calls"));
+            currentCallDocId = callDoc.id;
+
             pc.onicecandidate = (e) => {
-                if (e.candidate) addDoc(collection(doc(db, "calls", currentCallDocId), "offerCandidates"), e.candidate.toJSON());
+                if(e.candidate) addDoc(collection(callDoc, "offerCandidates"), e.candidate.toJSON());
             };
 
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
-            // ... (baki Firestore logic wahi rahega)
+            await setDoc(callDoc, { offer: { type: offer.type, sdp: offer.sdp }, status: 'ringing', mode: mode });
+            
+            document.getElementById('call-screen').style.display = 'flex';
         };
 
-        // --- Admin: Create User ---
-        window.createUser = async () => {
-            const email = document.getElementById('new-user-email').value;
-            // Admin sirf user create karega, auth ke baad firestore mein document bhi banayein
-            await addDoc(collection(db, "users"), { email: email });
-            alert("User Added!");
+        window.answerCall = async () => {
+            const callDoc = doc(db, "calls", currentCallDocId);
+            const data = (await getDoc(callDoc)).data();
+
+            pc = new RTCPeerConnection(servers);
+            localStream = await navigator.mediaDevices.getUserMedia({ video: data.mode === 'video', audio: true });
+            document.getElementById('local-video').srcObject = localStream;
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+            pc.ontrack = (e) => { document.getElementById('remote-video').srcObject = e.streams[0]; };
+
+            await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            await updateDoc(callDoc, { answer: { type: answer.type, sdp: answer.sdp }, status: 'active' });
         };
 
         window.endCall = () => {
-            if (localStream) localStream.getTracks().forEach(track => track.stop());
-            if (pc) pc.close();
+            if(localStream) localStream.getTracks().forEach(t => t.stop());
+            if(pc) pc.close();
             document.getElementById('call-screen').style.display = 'none';
         };
-
-        // ... (Baaki logic wahi rahega)
     </script>
 </body>
 </html>
