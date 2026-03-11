@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WhatsApp Pro - Fixed WebRTC</title>
+    <title>WhatsApp Pro - Admin & WebRTC</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root { --wa-teal: #075E54; --wa-green: #25D366; --wa-blue: #34B7F1; --wa-bg: #efe7de; --wa-dark: #0b141a; }
@@ -20,7 +20,7 @@
         .user-item { display: flex; align-items: center; padding: 15px; background: white; border-bottom: 1px solid #eee; cursor: pointer; }
         .user-item img { width: 45px; height: 45px; border-radius: 50%; margin-right: 15px; }
 
-        /* Calling UI */
+        /* Call UI */
         #call-overlay { position: fixed; inset: 0; background: var(--wa-dark); z-index: 10000; display: none; flex-direction: column; align-items: center; justify-content: space-between; padding: 60px 20px; color: white; }
         .call-info { text-align: center; z-index: 10; }
         .call-info img { width: 110px; height: 110px; border-radius: 50%; border: 2px solid #555; margin-bottom: 15px; }
@@ -31,6 +31,11 @@
         .rej-btn { background: #ff3b30; }
         #remote-v { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
         #local-v { position: absolute; top: 20px; right: 20px; width: 110px; height: 160px; border-radius: 10px; object-fit: cover; z-index: 5; background: #000; border: 1px solid #444; }
+
+        /* Admin Dashboard */
+        #admin-panel { position: fixed; inset: 0; background: #f0f2f5; z-index: 5000; display: flex; flex-direction: column; }
+        .admin-section { background: white; margin: 10px; padding: 15px; border-radius: 8px; }
+        .admin-input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 5px; }
     </style>
 </head>
 <body>
@@ -50,19 +55,39 @@
         </div>
     </div>
 
+    <div id="admin-panel" class="hidden">
+        <header>
+            <i class="fas fa-arrow-left" onclick="document.getElementById('admin-panel').classList.add('hidden')"></i>
+            <b>Admin Dashboard</b>
+            <span></span>
+        </header>
+        <div style="flex:1; overflow-y:auto;">
+            <div class="admin-section">
+                <h4>Create New User</h4>
+                <input type="email" id="new-user-email" class="admin-input" placeholder="User Email">
+                <input type="text" id="new-user-pass" class="admin-input" placeholder="User Password">
+                <button onclick="window.createUser()" style="width:100%; padding:12px; background:var(--wa-teal); color:white; border:none; border-radius:5px;">ADD USER</button>
+            </div>
+            <div id="admin-user-list" style="padding:10px;"></div>
+        </div>
+    </div>
+
     <div id="login-screen" style="position:fixed; inset:0; background:var(--wa-teal); z-index:10000; display:flex; align-items:center; justify-content:center;">
         <div style="background:white; padding:30px; border-radius:10px; width:90%; max-width:350px;">
             <h2 style="text-align:center; color:var(--wa-teal); margin-bottom:20px;">WhatsApp Pro</h2>
             <input type="email" id="l-email" placeholder="Email" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:5px;">
             <input type="password" id="l-pass" placeholder="Password" style="width:100%; padding:12px; margin-bottom:10px; border:1px solid #ddd; border-radius:5px;">
-            <button onclick="window.doLogin()" style="width:100%; padding:12px; background:var(--wa-green); color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">LOGIN</button>
+            <button id="login-btn" onclick="window.doLogin()" style="width:100%; padding:12px; background:var(--wa-green); color:white; border:none; border-radius:5px; font-weight:bold;">LOGIN</button>
         </div>
     </div>
 
     <div id="main-app" class="hidden">
         <header>
             <b>WhatsApp</b> 
-            <i class="fas fa-sign-out-alt" onclick="window.logout()" style="cursor:pointer;"></i>
+            <div>
+                <i class="fas fa-user-shield hidden" id="admin-icon" style="margin-right:20px; cursor:pointer;" onclick="window.showAdmin()"></i>
+                <i class="fas fa-sign-out-alt" onclick="window.logout()" style="cursor:pointer;"></i>
+            </div>
         </header>
         <div id="user-list"></div>
     </div>
@@ -96,23 +121,29 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        const ADMIN_EMAIL = "admin@gmail.com";
         let me = null, peer = null, pc = null, localStream = null, currentCallDocId = null, timerInterval = null;
         const servers = { iceServers: [{ urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }] };
 
-        // --- LOGIN LOGIC (FIXED) ---
+        // --- ADMIN & LOGIN LOGIC ---
         window.doLogin = async () => {
             const e = document.getElementById('l-email').value.trim();
             const p = document.getElementById('l-pass').value.trim();
-            if(!e || !p) return alert("Details bhariye");
+            if(!e || !p) return alert("Fill details");
+            
             try {
-                // Pehle sign in try karo, agar user nahi hai to create karo
-                await signInWithEmailAndPassword(auth, e, p).catch(async (error) => {
-                    if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+                const uSnap = await getDoc(doc(db, "users", e));
+                if(uSnap.exists() && uSnap.data().password === p) {
+                    await signInWithEmailAndPassword(auth, e, p).catch(async () => {
                         await createUserWithEmailAndPassword(auth, e, p);
-                    } else { throw error; }
-                });
-                await setDoc(doc(db, "users", e), { email: e, password: p }, { merge: true });
-            } catch (err) { alert("Login Error: " + err.message); }
+                    });
+                } else if(e === ADMIN_EMAIL) {
+                    await signInWithEmailAndPassword(auth, e, p).catch(async () => {
+                        await createUserWithEmailAndPassword(auth, e, p);
+                        await setDoc(doc(db, "users", e), { email: e, password: p, role: "admin" });
+                    });
+                } else { alert("Invalid Credentials!"); return; }
+            } catch (err) { alert(err.message); }
         };
 
         onAuthStateChanged(auth, u => {
@@ -120,22 +151,41 @@
                 me = u;
                 document.getElementById('login-screen').classList.add('hidden');
                 document.getElementById('main-app').classList.remove('hidden');
+                if(me.email === ADMIN_EMAIL) document.getElementById('admin-icon').classList.remove('hidden');
                 loadList();
                 listenForCalls();
             }
         });
 
-        // --- CALLING LOGIC (WHATSAPP STYLE) ---
+        window.showAdmin = async () => {
+            document.getElementById('admin-panel').classList.remove('hidden');
+            const snap = await getDocs(collection(db, "users"));
+            const div = document.getElementById('admin-user-list'); div.innerHTML = "";
+            snap.forEach(d => {
+                const u = d.data();
+                div.innerHTML += `<div style="padding:10px; background:white; margin-bottom:5px;">${u.email} <i class="fas fa-trash" onclick="window.delUser('${u.email}')" style="float:right; color:red;"></i></div>`;
+            });
+        };
+
+        window.createUser = async () => {
+            const e = document.getElementById('new-user-email').value;
+            const p = document.getElementById('new-user-pass').value;
+            await setDoc(doc(db, "users", e), { email: e, password: p });
+            window.showAdmin();
+        };
+
+        window.delUser = async (id) => { if(confirm("Delete?")) await deleteDoc(doc(db, "users", id)); window.showAdmin(); };
+
+        // --- WEB RTC CALLING LOGIC ---
         function listenForCalls() {
             onSnapshot(collection(db, "calls"), snap => {
                 snap.docChanges().forEach(async change => {
                     const data = change.doc.data();
-                    const id = change.doc.id;
                     if (change.type === "added" && data.to === me.email && data.status === "ringing") {
-                        currentCallDocId = id;
+                        currentCallDocId = change.doc.id;
                         showOverlay(data.from, `Incoming ${data.type}...`, true);
                     }
-                    if (change.type === "modified" && currentCallDocId === id) {
+                    if (change.type === "modified" && currentCallDocId === change.doc.id) {
                         if (data.status === "accepted" && data.answer && !pc.currentRemoteDescription) {
                             await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
                         }
@@ -151,28 +201,13 @@
             pc = new RTCPeerConnection(servers);
             localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' });
             localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-            
-            if(type === 'video') {
-                document.getElementById('local-v').classList.remove('hidden');
-                document.getElementById('local-v').srcObject = localStream;
-            }
-
-            pc.onicecandidate = e => {
-                if (e.candidate) addDoc(collection(db, "calls", currentCallDocId, "candidates"), e.candidate.toJSON());
-            };
-            pc.ontrack = e => {
-                document.getElementById('remote-v').srcObject = e.streams[0];
-                startTimer();
-            };
-
+            if(type === 'video') { document.getElementById('local-v').classList.remove('hidden'); document.getElementById('local-v').srcObject = localStream; }
+            pc.onicecandidate = e => { if (e.candidate) addDoc(collection(db, "calls", currentCallDocId, "candidates"), e.candidate.toJSON()); };
+            pc.ontrack = e => { document.getElementById('remote-v').srcObject = e.streams[0]; startTimer(); };
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
             await setDoc(doc(db, "calls", currentCallDocId), { to: peer.email, from: me.email, status: "ringing", type, offer: {type: offer.type, sdp: offer.sdp} });
-
-            // Listen for ICE
-            onSnapshot(collection(db, "calls", currentCallDocId, "candidates"), s => {
-                s.docChanges().forEach(c => { if(c.type === "added") pc.addIceCandidate(new RTCIceCandidate(c.doc.data())); });
-            });
+            onSnapshot(collection(db, "calls", currentCallDocId, "candidates"), s => { s.docChanges().forEach(c => { if(c.type === "added") pc.addIceCandidate(new RTCIceCandidate(c.doc.data())); }); });
         };
 
         window.acceptCall = async () => {
@@ -182,28 +217,14 @@
             pc = new RTCPeerConnection(servers);
             localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: data.type === 'video' });
             localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-            
-            if(data.type === 'video') {
-                document.getElementById('local-v').classList.remove('hidden');
-                document.getElementById('local-v').srcObject = localStream;
-            }
-
-            pc.onicecandidate = e => {
-                if (e.candidate) addDoc(collection(db, "calls", currentCallDocId, "candidates"), e.candidate.toJSON());
-            };
-            pc.ontrack = e => {
-                document.getElementById('remote-v').srcObject = e.streams[0];
-                startTimer();
-            };
-
+            if(data.type === 'video') { document.getElementById('local-v').classList.remove('hidden'); document.getElementById('local-v').srcObject = localStream; }
+            pc.onicecandidate = e => { if (e.candidate) addDoc(collection(db, "calls", currentCallDocId, "candidates"), e.candidate.toJSON()); };
+            pc.ontrack = e => { document.getElementById('remote-v').srcObject = e.streams[0]; startTimer(); };
             await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             await updateDoc(doc(db, "calls", currentCallDocId), { answer: {type: answer.type, sdp: answer.sdp}, status: "accepted" });
-
-            onSnapshot(collection(db, "calls", currentCallDocId, "candidates"), s => {
-                s.docChanges().forEach(c => { if(c.type === "added") pc.addIceCandidate(new RTCIceCandidate(c.doc.data())); });
-            });
+            onSnapshot(collection(db, "calls", currentCallDocId, "candidates"), s => { s.docChanges().forEach(c => { if(c.type === "added") pc.addIceCandidate(new RTCIceCandidate(c.doc.data())); }); });
         };
 
         window.hangup = async (notify = true) => {
@@ -212,6 +233,7 @@
             if(pc) pc.close();
             clearInterval(timerInterval);
             document.getElementById('call-overlay').style.display = 'none';
+            document.getElementById('local-v').classList.add('hidden');
             document.getElementById('remote-v').srcObject = null;
             currentCallDocId = null;
         };
@@ -237,7 +259,7 @@
             else document.getElementById('btn-ans').classList.add('hidden');
         }
 
-        // --- BASICS ---
+        // --- MESSAGE LOGIC ---
         function loadList() {
             onSnapshot(collection(db, "users"), snap => {
                 const list = document.getElementById('user-list'); list.innerHTML = "";
@@ -283,4 +305,3 @@
     </script>
 </body>
 </html>
-
