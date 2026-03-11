@@ -138,24 +138,52 @@
         let timerInterval = null;
         const servers = { iceServers: [{ urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }] };
 
-        // 1. Listen for Incoming Calls (For both Admin and User)
-        function listenForCalls() {
-            onSnapshot(collection(db, "calls"), snap => {
-                snap.docChanges().forEach(async change => {
-                    const data = change.doc.data();
-                    if (change.type === "added" && data.to === me.email && data.status === "ringing") {
-                        incomingCallUI(change.doc.id, data);
-                    }
-                    if (change.type === "modified" && currentCallDocId === change.doc.id) {
-                        if (data.status === "accepted" && !pc.currentRemoteDescription) {
-                            await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-                            startTimer();
-                        }
-                        if (data.status === "ended") window.hangup(false);
-                    }
-                });
-            });
+       // Is updated function ko apne purane listenForCalls se badal dein
+function listenForCalls() {
+    onSnapshot(collection(db, "calls"), snap => {
+        snap.docChanges().forEach(async change => {
+            const data = change.doc.data();
+            const id = change.doc.id;
+
+            // 1. Naya call aane par
+            if (change.type === "added" && data.to === me.email && data.status === "ringing") {
+                incomingCallUI(id, data);
+            }
+
+            // 2. Call status update hone par
+            if (change.type === "modified" && currentCallDocId === id) {
+                // Agar samne wale ne call utha liya (Answer mil gaya)
+                if (data.status === "accepted" && data.answer && !pc.currentRemoteDescription) {
+                    await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+                    console.log("Remote Description Set!");
+                }
+
+                // ICE Candidates exchange (Yahi "Connecting" ko khatam karta hai)
+                if (data.offerIce && data.from !== me.email) {
+                    try { await pc.addIceCandidate(new RTCIceCandidate(data.offerIce)); } catch(e){}
+                }
+                if (data.answerIce && data.to !== me.email) {
+                    try { await pc.addIceCandidate(new RTCIceCandidate(data.answerIce)); } catch(e){}
+                }
+
+                // Call khatam hone par
+                if (data.status === "ended") window.hangup(false);
+            }
+        });
+    });
+}
+
+// Timer ko trigger karne wala event handler
+// Isse pc.ontrack ke andar dalna hai taaki jab video/audio mil jaye tab timer shuru ho
+function setupTracks() {
+    pc.ontrack = e => {
+        document.getElementById('remote-v').srcObject = e.streams[0];
+        // Jaise hi stream mile, "Connecting" hata kar timer shuru karo
+        if (e.streams[0]) {
+            startTimer(); 
         }
+    };
+}
 
         // 2. Outgoing Call Logic
         window.makeCall = async (type) => {
@@ -358,3 +386,4 @@
     </script>
 </body>
 </html>
+
